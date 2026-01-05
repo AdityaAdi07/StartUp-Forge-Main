@@ -3,6 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Network, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+interface RelationshipGraphProps {
+  investorName: string;
+  targetCompany: string;
+  conflictLevel: number;
+  conflicts: any[]; // Level 2 data
+  level1Companies: string[];
+}
+
 interface Node {
   id: string;
   label: string;
@@ -18,82 +26,71 @@ interface Edge {
   label?: string;
 }
 
-interface RelationshipGraphProps {
-  investorName: string;
-  targetCompany: string;
-  conflictLevel: number; // 0, 1, or 2
-  conflicts?: any[]; // Level 2 details
-  level1Companies?: string[]; // Level 1 company names
-}
-
-const RelationshipGraph = ({
-  investorName,
-  targetCompany,
-  conflictLevel,
-  conflicts = [],
-  level1Companies = []
-}: RelationshipGraphProps) => {
+const RelationshipGraph = ({ investorName, targetCompany, conflictLevel, conflicts, level1Companies }: RelationshipGraphProps) => {
   const [zoom, setZoom] = useState(1);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
   useEffect(() => {
-    // Dynamic Graph Generation Logic
+    // --- Transform Props to Graph Data ---
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
-    // Helper positions
-    const startX = 100;
-    const endX = 660;
-    const midX = (startX + endX) / 2;
-    const centerY = 150;
+    // 1. Investor Node (Root)
+    newNodes.push({ id: "investor", label: investorName || "Investor", type: "investor", x: 100, y: 150 });
 
-    // 1. Always add Investor and Target
-    newNodes.push({ id: "inv", label: investorName || "Investor", type: "investor", x: startX, y: centerY });
-    newNodes.push({ id: "tgt", label: targetCompany || "Target", type: "target", x: endX, y: centerY });
+    // 2. Target Node (End)
+    newNodes.push({ id: "target", label: targetCompany || "Target", type: "target", x: 650, y: 150 });
 
-    if (conflictLevel === 2) {
-      // --- Level 2: Indirect Conflict (Ownership) ---
-      // Pattern: Investor -> Parent -> Subsidiary -> Target
-      // For demo simplicity, we visualize the FIRST conflict path if multiple exist
-      const conflict = conflicts[0] || {};
-      const parentName = conflict.investedParent || "Parent Co";
-      const subName = conflict.competingSubsidiary || "Subsidiary";
+    if (conflictLevel === 1) {
+      // Level 1: Investor -> [Company] -> ... Target (Conceptual overlap)
+      // For Level 1 we usually show they invest in a competitor.
+      // Let's visualize: Investor -> Company (Competitor)
+      level1Companies.forEach((company, i) => {
+        const nodeId = `comp-${i}`;
+        const offsetY = 150 + (i - (level1Companies.length - 1) / 2) * 80; // Spread vertically
 
-      // Parent Node
-      newNodes.push({ id: "parent", label: parentName, type: "company", x: startX + 180, y: centerY - 50 });
-      // Subsidiary Node
-      newNodes.push({ id: "sub", label: subName, type: "company", x: endX - 180, y: centerY + 50 });
+        newNodes.push({ id: nodeId, label: company, type: "company", x: 375, y: offsetY });
 
-      // Edges
-      newEdges.push({ from: "inv", to: "parent", type: "direct", label: "Invested In" });
-      newEdges.push({ from: "parent", to: "sub", type: "direct", label: "Owns" });
-      newEdges.push({ from: "sub", to: "tgt", type: "indirect", label: "Competes With" });
+        // Edges
+        newEdges.push({ from: "investor", to: nodeId, type: "direct", label: "Invests In" });
+        newEdges.push({ from: nodeId, to: "target", type: "indirect", label: "Sector Overlap" });
+      });
 
-    } else if (conflictLevel === 1) {
-      // --- Level 1: Direct/Sector Conflict ---
-      // Pattern: Investor -> Portfolio Co -> Target (via Sector)
-      const portCoName = level1Companies[0] || "Portfolio Co";
+    } else if (conflictLevel === 2) {
+      // Level 2: Investor -> Parent -> Subsidiary -> Target
+      // Or: Investor -> Parent -> Subsidiary (diff) vs Target
+      // Based on data: "investedParent" owns "competingSubsidiary"
+      conflicts.forEach((c, i) => {
+        const parentId = `parent-${i}`;
+        const subId = `sub-${i}`;
 
-      // Portfolio Node
-      newNodes.push({ id: "port", label: portCoName, type: "company", x: midX, y: centerY });
+        // Spread nodes
+        const verticalBase = 150;
+        const spread = 100;
+        const yPos = verticalBase + (i - (conflicts.length - 1) / 2) * spread;
 
-      // Edges
-      newEdges.push({ from: "inv", to: "port", type: "direct", label: "Invested In" });
-      newEdges.push({ from: "port", to: "tgt", type: "indirect", label: "Same Sector" });
+        newNodes.push({ id: parentId, label: c.investedParent, type: "company", x: 280, y: yPos });
+        newNodes.push({ id: subId, label: c.competingSubsidiary, type: "company", x: 460, y: yPos });
 
+        newEdges.push({ from: "investor", to: parentId, type: "direct", label: "Invests In" });
+        newEdges.push({ from: parentId, to: subId, type: "direct", label: "Owns" });
+        newEdges.push({ from: subId, to: "target", type: "indirect", label: "Competes With" });
+      });
     } else {
-      // --- No Conflict ---
-      // Just showing they are disconnected or checking
-      // Optional: Add a '?' link or just leave blank
-      newEdges.push({ from: "inv", to: "tgt", type: "indirect", label: "No Conflict Found" });
+      // No Conflict - Just show discrete nodes
+      // Maybe a dotted line or nothing
     }
+
+    // If no conflicts, we might want to show direct link if they are connected? 
+    // For now, if no conflict, the graph will just show Investor and Target disconnected.
 
     setNodes(newNodes);
     setEdges(newEdges);
 
   }, [investorName, targetCompany, conflictLevel, conflicts, level1Companies]);
+
 
   const getNodeColor = (type: string) => {
     const colors: Record<string, string> = {
@@ -117,7 +114,7 @@ const RelationshipGraph = ({
 
   const getEdgePath = (from: Node, to: Node) => {
     const dx = to.x - from.x;
-    // Curvature logic
+    const dy = to.y - from.y;
     const cx1 = from.x + dx * 0.4;
     const cy1 = from.y;
     const cx2 = from.x + dx * 0.6;
@@ -126,45 +123,46 @@ const RelationshipGraph = ({
   };
 
   return (
-    <Card className="animate-fade-in">
-      <CardHeader className="pb-3">
+    <Card className="animate-fade-in bg-white border-border rounded-[2.5rem] shadow-sm overflow-hidden border-none uppercase tracking-widest">
+      <CardHeader className="pb-3 p-8">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Network className="h-4 w-4 text-primary" />
+          <CardTitle className="flex items-center gap-3 text-xl font-bold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+              <Network className="h-5 w-5 text-primary" />
             </div>
             Relationship Graph
           </CardTitle>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-2xl">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9 rounded-xl hover:bg-white transition-all"
               onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-5 w-5" />
             </Button>
-            <span className="text-xs text-muted-foreground w-12 text-center">
+            <span className="text-sm font-bold text-muted-foreground w-12 text-center">
               {Math.round(zoom * 100)}%
             </span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9 rounded-xl hover:bg-white transition-all"
               onClick={() => setZoom(Math.min(1.5, zoom + 0.1))}
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Maximize2 className="h-4 w-4" />
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white transition-all">
+              <Maximize2 className="h-5 w-5" />
             </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-0">
-        <div className="relative border-t border-border bg-secondary/30 overflow-hidden" style={{ height: 320 }}>
+        <div id="relationship-graph-container" className="relative border-t border-border/50 bg-[#F8FAFC] overflow-hidden" style={{ height: 400 }}>
           <svg
             id="relationship-graph-svg"
             width="100%"
@@ -268,31 +266,6 @@ const RelationshipGraph = ({
               </g>
             ))}
           </svg>
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-4 p-4 border-t border-border bg-card">
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "#4F46E5" }} />
-            <span className="text-xs text-muted-foreground">Investor</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "#0EA5E9" }} />
-            <span className="text-xs text-muted-foreground">Company</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "#EF4444" }} />
-            <span className="text-xs text-muted-foreground">Target</span>
-          </div>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <div className="h-0.5 w-6 bg-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Direct</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-0.5 w-6 border-t-2 border-dashed border-muted-foreground/50" />
-            <span className="text-xs text-muted-foreground">Indirect</span>
-          </div>
         </div>
       </CardContent>
     </Card>

@@ -2,8 +2,9 @@ import { ChevronRight, FileText, AlertCircle, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
 
-export interface ConflictPath {
+interface ConflictPath {
   id: string;
   path: string[];
   severity: "low" | "medium" | "high";
@@ -15,24 +16,25 @@ interface ConflictExplanationPanelProps {
 }
 
 const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelProps) => {
-  // Map API conflicts to UI ConflictPaths
-  const conflictPaths: ConflictPath[] = conflicts.map((c, idx) => ({
-    id: idx.toString(),
-    // Fallback path logic since API returns flat descriptions currently
-    path: c.company ? [c.company, "Target Company"] : ["Unknown Entity"],
-    severity: c.level === 2 ? "high" : "medium",
-    explanation: c.reason
-  }));
+  const [conflictPaths, setConflictPaths] = useState<ConflictPath[]>([]);
+  const [selectedPath, setSelectedPath] = useState<string>("0");
 
-  // Render mock data if no real conflicts (or if API returns empty during pure UI demo without backend data)
-  const displayPaths = conflictPaths.length > 0 ? conflictPaths : [
-    {
-      id: "demo-1",
-      path: ["No Conflicts Detected"],
-      severity: "low",
-      explanation: "No direct or indirect conflicts were found between the selected investor and the target company."
-    } as ConflictPath
-  ];
+  useEffect(() => {
+    if (!conflicts || conflicts.length === 0) {
+      setConflictPaths([]);
+      return;
+    }
+
+    const mapped = conflicts.map((c, i) => ({
+      id: i.toString(),
+      path: c.path || [c.company || "Entity"],
+      severity: (c.level === 2 ? "high" : "medium") as "high" | "medium" | "low",
+      explanation: c.reason || "Automatic conflict detection."
+    }));
+    setConflictPaths(mapped);
+    if (mapped.length > 0) setSelectedPath("0");
+
+  }, [conflicts]);
 
   const getSeverityStyles = (severity: string) => {
     switch (severity) {
@@ -54,31 +56,31 @@ const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelPr
     }
   };
 
-  const [selectedPath, setSelectedPath] = useState<string>(displayPaths[0]?.id || "0");
+  const selectedConflict = conflictPaths.find(p => p.id === selectedPath);
 
-  const selectedConflict = displayPaths.find(p => p.id === selectedPath);
+  if (conflictPaths.length === 0) return null;
 
   return (
-    <Card className="animate-fade-in h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <FileText className="h-4 w-4 text-primary" />
+    <Card className="animate-fade-in h-full bg-white border-border rounded-[2.5rem] shadow-sm overflow-hidden border-none">
+      <CardHeader className="pb-3 p-8">
+        <CardTitle className="flex items-center gap-3 text-xl font-bold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+            <FileText className="h-5 w-5 text-primary" />
           </div>
           Conflict Explanation
         </CardTitle>
       </CardHeader>
 
       <CardContent className="p-0">
-        <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+        <div className="grid md:grid-cols-2">
           {/* Left: Conflict Paths */}
-          <div className="p-4">
-            <h4 className="text-sm font-medium text-muted-foreground mb-3">
+          <div className="p-8 border-r border-border/50">
+            <h4 className="text-sm font-bold text-muted-foreground mb-4 uppercase tracking-wider">
               Detected Conflict Paths
             </h4>
-            <ScrollArea className="h-[240px] pr-2">
-              <div className="space-y-2">
-                {displayPaths.map((conflict) => {
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-3">
+                {conflictPaths.map((conflict) => {
                   const styles = getSeverityStyles(conflict.severity);
                   const isSelected = selectedPath === conflict.id;
 
@@ -86,14 +88,14 @@ const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelPr
                     <button
                       key={conflict.id}
                       onClick={() => setSelectedPath(conflict.id)}
-                      className={`w-full text-left p-3 rounded-lg border transition-all duration-200 ${isSelected
-                        ? "border-primary bg-accent shadow-sm"
-                        : "border-border hover:border-primary/30 hover:bg-secondary/50"
+                      className={`w-full text-left p-4 rounded-[1.5rem] border transition-all duration-300 ${isSelected
+                        ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                        : "border-border/50 hover:border-primary/20 hover:bg-secondary/30"
                         }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="outline" className={styles.badge}>
-                          {conflict.severity.charAt(0).toUpperCase() + conflict.severity.slice(1)}
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge variant="outline" className={`${styles.badge} rounded-full font-bold px-2 py-0.5 text-[10px] uppercase tracking-tighter`}>
+                          {conflict.severity} severity
                         </Badge>
                         <ChevronRight className={`h-4 w-4 transition-transform ${isSelected ? "text-primary rotate-90" : "text-muted-foreground"
                           }`} />
@@ -101,11 +103,11 @@ const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelPr
                       <div className="flex flex-wrap items-center gap-1">
                         {conflict.path.map((node, i) => (
                           <span key={i} className="flex items-center text-xs">
-                            <span className={`${i === 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                            <span className={`font-bold ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
                               {node}
                             </span>
                             {i < conflict.path.length - 1 && (
-                              <ChevronRight className="h-3 w-3 text-muted-foreground mx-0.5" />
+                              <ChevronRight className="h-3 w-3 text-muted-foreground/50 mx-1" />
                             )}
                           </span>
                         ))}
@@ -118,44 +120,44 @@ const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelPr
           </div>
 
           {/* Right: Explanation */}
-          <div className="p-4 bg-secondary/20">
-            <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+          <div className="p-8 bg-[#F8FAFC]">
+            <h4 className="text-sm font-bold text-muted-foreground mb-4 flex items-center gap-2 uppercase tracking-wider">
               <Info className="h-4 w-4" />
               Plain-English Explanation
             </h4>
 
             {selectedConflict && (
-              <div className="space-y-4 animate-fade-in">
-                <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-lg bg-card border border-border">
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex flex-wrap items-center gap-2 p-4 rounded-[1.5rem] bg-white border border-border shadow-sm">
                   {selectedConflict.path.map((node, i) => (
                     <span key={i} className="flex items-center">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${i === 0
-                        ? "bg-[#4F46E5]/10 text-[#4F46E5]"
+                      <span className={`px-3 py-1.5 rounded-xl text-xs font-bold ${i === 0
+                        ? "bg-primary text-white"
                         : i === selectedConflict.path.length - 1
-                          ? "bg-[#EF4444]/10 text-[#EF4444]"
+                          ? "bg-destructive text-white"
                           : "bg-secondary text-foreground"
                         }`}>
                         {node}
                       </span>
                       {i < selectedConflict.path.length - 1 && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/30 mx-1" />
                       )}
                     </span>
                   ))}
                 </div>
 
-                <div className="p-4 rounded-lg bg-card border border-border">
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 h-2 w-2 rounded-full ${getSeverityStyles(selectedConflict.severity).dot}`} />
-                    <p className="text-sm text-foreground leading-relaxed">
+                <div className="p-6 rounded-[1.5rem] bg-white border border-border shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className={`mt-1.5 h-3 w-3 rounded-full shrink-0 ${getSeverityStyles(selectedConflict.severity).dot}`} />
+                    <p className="text-base text-foreground font-medium leading-relaxed">
                       {selectedConflict.explanation}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/50 border border-primary/10">
-                  <AlertCircle className="h-4 w-4 text-primary shrink-0" />
-                  <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 p-4 rounded-[1.5rem] bg-primary/5 border border-primary/10">
+                  <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-xs text-muted-foreground font-medium leading-normal">
                     This explanation is audit-ready and suitable for compliance documentation.
                   </p>
                 </div>
@@ -167,7 +169,5 @@ const ConflictExplanationPanel = ({ conflicts = [] }: ConflictExplanationPanelPr
     </Card>
   );
 };
-
-import { useState } from "react";
 
 export default ConflictExplanationPanel;

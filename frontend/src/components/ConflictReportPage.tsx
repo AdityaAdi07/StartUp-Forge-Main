@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-// Components ported from reference
+// New Components
+import DashboardHeader from "@/components/coi/DashboardHeader";
+import EntitySelectionPanel from "@/components/coi/EntitySelectionPanel";
 import RiskOverviewCard from "@/components/coi/RiskOverviewCard";
 import RelationshipGraph from "@/components/coi/RelationshipGraph";
 import ConflictExplanationPanel from "@/components/coi/ConflictExplanationPanel";
@@ -7,180 +9,210 @@ import ComplianceActions from "@/components/coi/ComplianceActions";
 
 // UI Components
 import { Badge } from "@/components/ui/badge";
-import { Calendar, RefreshCw, ArrowLeft } from "lucide-react";
+import { Calendar, RefreshCw, Sparkles } from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 interface ConflictReportPageProps {
     onBack: () => void;
-    investorId: string;
-    investorName: string;
+    currentInvestorName?: string;
+    targetCompanyName?: string;
 }
 
-const ConflictReportPage = ({ onBack, investorId, investorName }: ConflictReportPageProps) => {
-    const [isAnalyzing, setIsAnalyzing] = useState(true);
+const ConflictReportPage = ({ onBack, currentInvestorName, targetCompanyName }: ConflictReportPageProps) => {
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [conflictData, setConflictData] = useState<any>(null);
+    const [hasResults, setHasResults] = useState(false);
+    const [selectedInvestor, setSelectedInvestor] = useState(currentInvestorName || "");
+    const [selectedTarget, setSelectedTarget] = useState(targetCompanyName || "");
 
+    const handleRunCheck = async (investor: string, target: string) => {
+        setIsAnalyzing(true);
+        setHasResults(false);
+        setSelectedInvestor(investor);
+        setSelectedTarget(target);
+
+        try {
+            const res = await fetch('http://localhost:3000/api/coi/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    investorName: investor,
+                    targetCompany: target
+                })
+            });
+            const data = await res.json();
+            setConflictData(data);
+            setHasResults(true);
+            toast.success("Analysis Complete", { description: "Conflict detection finished successfully." });
+        } catch (err) {
+            console.error("COI Analysis Failed", err);
+            toast.error("Analysis Failed", { description: "Could not connect to the analysis engine." });
+            setConflictData(null);
+        } finally {
+            // Minimum loading time for UX
+            setTimeout(() => setIsAnalyzing(false), 1200);
+        }
+    };
+
+    // Auto-run analysis if investor is pre-selected
     useEffect(() => {
-        const checkConflict = async () => {
-            setIsAnalyzing(true);
-            try {
-                // Use props investorName, default to 'Eyal Gura' for demo if empty/current-user
-                // targetCompany is hardcoded to 'Kapital' for this demo phase
-                const effectiveName = (investorName === 'You' || !investorName) ? 'Eyal Gura' : investorName;
+        if (currentInvestorName && targetCompanyName) {
+            handleRunCheck(currentInvestorName, targetCompanyName);
+        }
+    }, [currentInvestorName, targetCompanyName]);
 
-                const res = await fetch('http://localhost:3000/api/coi/check', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        investorName: effectiveName,
-                        targetCompany: 'Kapital'
-                    })
-                });
-                const data = await res.json();
-                setConflictData(data);
-            } catch (err) {
-                console.error("COI Analysis Failed", err);
-                // Fallback for UI if API fails completely
-                setConflictData({ hasConflict: false, conflicts: [] });
-            } finally {
-                // Minimum loading time for UX
-                setTimeout(() => setIsAnalyzing(false), 1000);
-            }
-        };
-
-        checkConflict();
-    }, [investorId]);
-
-    // Helpers to extract display data from API response
+    // Helpers to extract display data
     const currentLevel = conflictData?.conflictLevel || 0;
     const hasConflict = conflictData?.hasConflict || false;
 
     // --- Level 1 Data (Sector Overlap) ---
     const isLevel1 = currentLevel === 1;
     const level1Companies = isLevel1 ? (conflictData.conflictingCompanies || []) : [];
-    // If we have level 1 conflict, we show the companies as "relationships" tags in the card
     const level1Tags = isLevel1 ? level1Companies : [];
 
     // --- Level 2 Data (Subsidiary/Competitor) ---
     const isLevel2 = currentLevel === 2;
     const level2Details = isLevel2 ? (conflictData.conflicts || []) : [];
-    // For Level 2, we can show the parent companies involved as tags
     const level2Tags = isLevel2 ? level2Details.map((c: any) => c.investedParent) : [];
 
     // --- Calculate Score ---
-    const riskScore = hasConflict ? (isLevel2 ? 85 : 45) : 0; // Higher score for L2 (Hard conflict)
+    const riskScore = hasConflict ? (isLevel2 ? 85 : 45) : 0;
 
     // --- Normalize Data for Explanation Panel ---
     let explanationConflicts: any[] = [];
     if (isLevel2) {
         explanationConflicts = level2Details.map((c: any) => ({
             level: 2,
-            company: c.investedParent,
+            path: [selectedInvestor, c.investedParent, c.competingSubsidiary, selectedTarget],
             reason: `Parent entity '${c.investedParent}' owns subsidiary '${c.competingSubsidiary}' which competes with the target.`
         }));
     } else if (isLevel1) {
         explanationConflicts = level1Companies.map((name: string) => ({
             level: 1,
-            company: name,
+            path: [selectedInvestor, name, selectedTarget],
             reason: `Portfolio company '${name}' operates in the same domain as the target.`
         }));
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            <main className="container py-8 max-w-7xl mx-auto px-4">
-                {/* Page Header */}
-                <header className="mb-8">
-                    <button
-                        onClick={onBack}
-                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Back to Profile
-                    </button>
+        <div className="min-h-screen bg-transparent text-foreground font-sans selection:bg-primary/20">
+            {/* Top Header - Global */}
+            <DashboardHeader />
 
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Main Content Area */}
+            <main className="px-8 pb-20 pt-8 transition-all duration-300">
+                <div className="max-w-[1600px] mx-auto space-y-10">
+
+                    {/* Hero / Header Section */}
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 px-4">
                         <div>
-                            <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                                Conflict of Interest Analysis
-                            </h1>
-                            <p className="text-muted-foreground mt-1">
-                                Detailed analysis of direct and indirect relationships for <strong>{investorName}</strong> vs <strong>Target Company</strong>
+                            <h2 className="text-5xl font-extrabold tracking-tight text-foreground">
+                                Welcome, <span className="text-primary">{currentInvestorName || "Investor"}</span>
+                            </h2>
+                            <p className="text-xl text-muted-foreground mt-4 font-medium max-w-2xl leading-relaxed">
+                                Review your direct and indirect relationship analysis below to identify and mitigate institutional conflicts.
                             </p>
+                            {onBack && (
+                                <button onClick={onBack} className="text-sm font-bold text-primary hover:underline mt-2">
+                                    ← Back to Main Profile
+                                </button>
+                            )}
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="h-4 w-4" />
-                                <span>Last updated: {new Date().toLocaleDateString()}</span>
+                        <div className="flex flex-col items-end gap-3">
+                            <div className="flex items-center gap-3 bg-white/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/50 shadow-sm">
+                                <Calendar className="h-5 w-5 text-primary" />
+                                <span className="font-bold text-sm">{new Date().toLocaleDateString()}</span>
                             </div>
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                <div className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
-                                Live Analysis
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest shadow-sm">
+                                <div className="h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse" />
+                                Compliance Live
                             </Badge>
                         </div>
                     </div>
-                </header>
 
-                {isAnalyzing ? (
-                    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                        <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-700">Analyzing Relationships...</h3>
-                        <p className="text-gray-500">Scanning graph database for Level 1 & 2 conflicts</p>
+                    {/* Entity Selection Section */}
+                    <div className="px-4">
+                        <EntitySelectionPanel
+                            onRunCheck={handleRunCheck}
+                            isLoading={isAnalyzing}
+                            preselectedInvestor={currentInvestorName}
+                            preselectedTarget={targetCompanyName}
+                        />
                     </div>
-                ) : (
-                    <>
-                        {/* Risk Overview Cards */}
-                        <section className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-foreground">Risk Assessment</h2>
+
+                    {hasResults ? (
+                        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+                            {/* Risk Assessment Grid */}
+                            <div className="px-4">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-3xl font-black text-foreground/90 flex items-center gap-4">
+                                        <Sparkles className="h-8 w-8 text-primary" />
+                                        Conflict Risk Summary
+                                    </h3>
+                                    <button
+                                        onClick={() => handleRunCheck(selectedInvestor, selectedTarget)}
+                                        className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80 transition-all bg-white/60 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-sm border border-white/50"
+                                    >
+                                        <RefreshCw className={`h-4 w-4 ${isAnalyzing ? "animate-spin" : ""}`} />
+                                        Recalculate
+                                    </button>
+                                </div>
+
+                                <div className="grid lg:grid-cols-2 gap-10">
+                                    <RiskOverviewCard
+                                        level={1}
+                                        hasConflict={isLevel1}
+                                        riskScore={isLevel1 ? 45 : 0}
+                                        relationships={level1Tags}
+                                        description={isLevel1
+                                            ? `${conflictData.reason} Direct portfolio overlap detected.`
+                                            : "No direct investment or domain conflicts detected."}
+                                    />
+                                    <RiskOverviewCard
+                                        level={2}
+                                        hasConflict={isLevel2}
+                                        riskScore={isLevel2 ? 85 : 0}
+                                        relationships={level2Tags}
+                                        description={isLevel2
+                                            ? `${conflictData.reason} Indirect subsidiary/competitor conflict.`
+                                            : "No subsidiary or competitor conflicts detected."}
+                                    />
+                                </div>
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <RiskOverviewCard
-                                    level={1}
-                                    hasConflict={isLevel1}
-                                    riskScore={isLevel1 ? 45 : 0}
-                                    relationships={level1Tags}
-                                    description={isLevel1
-                                        ? conflictData.reason
-                                        : "No direct investment or domain conflicts detected."}
-                                />
-                                <RiskOverviewCard
-                                    level={2}
-                                    hasConflict={isLevel2}
-                                    riskScore={isLevel2 ? 85 : 0}
-                                    relationships={level2Tags.length > 0 ? level2Tags : ["Subsidiary", "Competitor"]}
-                                    description={isLevel2
-                                        ? conflictData.reason
-                                        : "No subsidiary or competitor conflicts detected."}
+                            {/* Visualization Section */}
+                            <div className="px-4">
+                                <RelationshipGraph
+                                    investorName={selectedInvestor}
+                                    targetCompany={selectedTarget}
+                                    conflictLevel={currentLevel}
+                                    conflicts={level2Details}
+                                    level1Companies={level1Companies}
                                 />
                             </div>
-                        </section>
 
-                        {/* Relationship Graph - (Static for now, illustration only) */}
-                        <section className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
-                            <RelationshipGraph
-                                investorName={investorName}
-                                targetCompany="Kapital"
-                                conflictLevel={currentLevel}
-                                conflicts={level2Details}
-                                level1Companies={level1Companies}
-                            />
-                        </section>
-
-                        {/* Conflict Explanation */}
-                        <section className="mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-                            <ConflictExplanationPanel conflicts={explanationConflicts} />
-                        </section>
-
-                        {/* Compliance Actions */}
-                        <section className="mb-8 animate-in fade-in slide-in-from-bottom-7 duration-700 delay-300">
-                            <ComplianceActions
-                                reportData={conflictData}
-                                fileNamePrefix={`COI_${(investorName || 'investor').replace(/\s+/g, '_')}_Kapital`}
-                            />
-                        </section>
-                    </>
-                )}
+                            {/* Detailed Breakdown */}
+                            <div className="px-4 flex flex-col gap-12">
+                                <ConflictExplanationPanel conflicts={explanationConflicts} />
+                                <ComplianceActions
+                                    reportData={conflictData}
+                                    fileNamePrefix={`COI_${selectedInvestor}_${selectedTarget}`}
+                                />
+                            </div>
+                        </div>
+                    ) : !isAnalyzing && (
+                        <div className="px-4 py-32 text-center">
+                            <div className="bg-white/40 backdrop-blur-xl rounded-[3rem] p-16 shadow-xl border border-white/40 inline-block max-w-xl">
+                                <div className="w-24 h-24 bg-primary/20 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8">
+                                    <Sparkles className="h-12 w-12 text-primary" />
+                                </div>
+                                <h3 className="text-3xl font-black mb-4">No analysis data</h3>
+                                <p className="text-muted-foreground text-lg font-semibold leading-relaxed">Select an entity above and run the conflict check to generate the relationship graph and risk assessment.</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </main>
         </div>
     );

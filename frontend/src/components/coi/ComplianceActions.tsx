@@ -9,41 +9,37 @@ interface ComplianceActionsProps {
 }
 
 const ComplianceActions = ({ reportData, fileNamePrefix }: ComplianceActionsProps) => {
+
   const handleDownloadPDF = () => {
-    toast.success("Preparing PDF View...", {
-      description: "Opening print dialog. Please select 'Save as PDF'.",
+    toast.success("Generating PDF Report...", {
+      description: "Your COI report will be ready for download shortly.",
     });
-    setTimeout(() => window.print(), 500);
+    setTimeout(() => {
+      window.print();
+    }, 800);
   };
 
   const handleExportGraph = () => {
-    const svgElement = document.getElementById("relationship-graph-svg");
+    const svgElement = document.getElementById('relationship-graph-svg');
     if (!svgElement) {
-      toast.error("Graph not found");
+      toast.error("Graph Error", { description: "Could not find graph element." });
       return;
     }
 
-    // Serialize SVG
     const serializer = new XMLSerializer();
-    let svgString = serializer.serializeToString(svgElement);
-
-    // Add namespace if missing
-    if (!svgString.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
-      svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-    }
-
-    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const source = serializer.serializeToString(svgElement);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${fileNamePrefix}_graph.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileNamePrefix}_graph.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-    toast.success("Exporting Relationship Graph...", {
-      description: "Graph downloaded as SVG.",
+    toast.success("Export Successful", {
+      description: "Graph exported as SVG.",
     });
   };
 
@@ -52,63 +48,66 @@ const ComplianceActions = ({ reportData, fileNamePrefix }: ComplianceActionsProp
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${fileNamePrefix}_data.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileNamePrefix}_data.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-    toast.info("Downloading Raw Data", {
-      description: "Relationship data exported as JSON.",
+    toast.info("Raw Data Downloaded", {
+      description: "Relationship data saved as JSON.",
     });
   };
 
   return (
-    <Card className="animate-fade-in print:hidden">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Share2 className="h-4 w-4 text-primary" />
+    <Card className="animate-fade-in bg-white border-border rounded-[2.5rem] shadow-sm overflow-hidden p-4">
+      <CardHeader className="pb-3 p-6">
+        <CardTitle className="flex items-center gap-3 text-xl font-bold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+            <Share2 className="h-5 w-5 text-primary" />
           </div>
           Compliance Actions
         </CardTitle>
       </CardHeader>
 
-      <CardContent>
-        <div className="flex flex-wrap gap-3">
+      <CardContent className="px-6 pb-6">
+        <div className="flex flex-wrap gap-4">
           <Button
             variant="default"
             onClick={handleDownloadPDF}
-            className="flex-1 min-w-[180px]"
+            className="flex-1 min-w-[200px] h-14 rounded-2xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-5 w-5 mr-3" />
             Download COI Report (PDF)
           </Button>
 
           <Button
             variant="outline"
             onClick={handleExportGraph}
-            className="flex-1 min-w-[180px]"
+            className="flex-1 min-w-[200px] h-14 rounded-2xl font-bold text-sm border-2 border-primary/20 text-primary hover:bg-primary/5 hover:scale-[1.02] transition-transform"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-5 w-5 mr-3" />
             Export Relationship Graph
           </Button>
 
           <Button
             variant="secondary"
             onClick={handleViewRawData}
-            className="flex-1 min-w-[180px]"
+            className="flex-1 min-w-[200px] h-14 rounded-2xl font-bold text-sm bg-secondary/50 text-foreground hover:bg-secondary hover:scale-[1.02] transition-transform"
           >
-            <FileJson className="h-4 w-4" />
+            <FileJson className="h-5 w-5 mr-3" />
             View Raw Relationship Data
           </Button>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border">
-          <Database className="h-4 w-4 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">
-            All reports are timestamped and logged for audit compliance. Data retention: 7 years.
+        <div className="mt-6 flex items-center gap-4 p-4 rounded-2xl bg-[#F8FAFC] border border-border/50">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
+            <Database className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+            All reports are <span className="text-foreground font-bold underline decoration-primary/20">timestamped and logged</span> for audit compliance.
+            Data retention is maintained for <span className="text-foreground font-bold">7 years</span> in accordance with industry standards.
           </p>
         </div>
       </CardContent>

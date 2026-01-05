@@ -778,8 +778,8 @@ function App() {
       {currentPage === 'conflict-report' && (
         <ConflictReportPage
           onBack={goBack}
-          investorId={currentUser.id}
-          investorName={currentUser.name}
+          currentInvestorName={currentUser.name}
+          targetCompanyName={viewingUser.experience || "Kapital"}
         />
       )}
 
