@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { User } from '../App';
-import { Search, MoreHorizontal, Send as SendIcon, Image, File, Mic, Plus, Smile } from 'lucide-react';
-// import Gun from 'gun/gun'; // Assuming Gun types are globally available or passed as any
+import {
+  Search,
+  Send as SendIcon,
+  Image,
+  File,
+  Plus,
+  Sparkles,
+  Users,
+  Bell,
+  MessageSquare,
+  BrainCircuit,
+  Home
+} from 'lucide-react';
 
 type MessagesPageProps = {
   gun: any;
@@ -9,6 +20,8 @@ type MessagesPageProps = {
   currentUser: User;
   onViewProfile: (userId: string) => void;
   targetUserId?: string | null;
+  onNavigate: (page: string) => void;
+  onSearch: (query: string) => void;
 };
 
 interface Message {
@@ -30,12 +43,27 @@ interface Conversation {
   roomKey?: string; // We'll fetch this
 }
 
-export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetUserId }: MessagesPageProps) {
+// --- Sub-components for Header (Copied for consistency as per user request) ---
+const ActionItem = ({ icon, label, badge = false, onClick }: { icon: any, label: string, badge?: boolean, onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="flex flex-col items-center justify-center text-slate-600 hover:text-white hover:bg-slate-900 p-2 rounded-xl transition-all group min-w-20 relative"
+  >
+    <div className="relative mb-0.5 transform group-hover:scale-105 transition-transform duration-200">
+      {icon}
+      {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+    </div>
+    <span className="text-xs font-medium tracking-wide group-hover:text-white">{label}</span>
+  </button>
+);
+
+export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetUserId, onNavigate, onSearch }: MessagesPageProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(targetUserId || null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
 
   const [currentRoomKey, setCurrentRoomKey] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -121,28 +149,9 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
         // Subscribe to Gun
         chatNode = gun.get('chats').get(roomKey);
 
-        // Map listener to prevent duplicates
-        // A simple way for React: load all, sort by time. 
-        // Better: use a reducer or simple state array with ID check
-
         chatNode.map().on((node: any, msgId: string) => {
           console.log('INCOMING MSG NODE:', node);
           if (!node || !node.text) return;
-
-          // Decrypt (Simulating encryption with simple text for MVP speed, or verify SEA)
-          // In real implementation: await Gun.SEA.decrypt(node.text, roomKey)
-          // STARTUP_FORGE_MVP: Storing payload directly or verifying simple encryption.
-          // Reverting to the previous simpler logic: we store raw text or simple object
-
-          // If it's SEA encrypted string:
-          // const decrypted = await Gun.SEA.decrypt(node.text, roomKey);
-
-          // For this MVP step, let's assume `node` contains the message object structure we set
-          // Structure: { sender, text, type, ts, fileName }
-
-          // We need to resolve the promise if it is encrypted. 
-          // For now, let's trust the read. check if 'text' is string.
-
           processIncomingMessage(node, msgId);
         });
 
@@ -161,11 +170,6 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
     setMessages(prev => {
       if (prev.find(m => m.id === id)) return prev;
 
-      // Decryption placeholder
-      // const content = await Gun.SEA.decrypt(node.text, currentRoomKey);
-      // Using node.text directly for now as per previous working steps
-
-      // Handle 'text' field which might be the content
       const content = typeof node.text === 'string' && node.text.startsWith('SEA') ? 'Encrypted Message' : node.text;
 
       return [...prev, {
@@ -243,162 +247,229 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
     setPreviewAttachment(null);
   };
 
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSearch) onSearch(headerSearchQuery);
+  };
+
   const selectedUser = conversations.find(c => c.userId === selectedConversation);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 h-[calc(100vh-80px)]">
-      <div className="bg-white rounded-lg border border-gray-200 h-full flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
+      {/* --- Fixed Header (Copied from HomePage) --- */}
+      <div className="bg-white px-8 py-6 shadow-sm border-b border-slate-100 z-50 flex-shrink-0">
+        <div className="flex items-center justify-between gap-6 w-full h-24">
 
-        {/* Sidebar */}
-        <div className="w-80 border-r border-gray-200 flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-xl text-gray-900 mb-3">Messages</h2>
+          {/* Profile */}
+          <button
+            onClick={() => onNavigate('profile')}
+            className="flex items-center gap-4 hover:bg-slate-50 p-2 rounded-xl transition-all group flex-shrink-0 min-w-52"
+          >
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-14 h-14 rounded-full border-2 border-gray-100 group-hover:border-slate-300 transition-colors object-cover"
+              />
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800">{currentUser.name}</span>
+              <span className="text-xs text-gray-500 font-medium">View Profile</span>
+            </div>
+          </button>
+
+          {/* Search */}
+          <div className="flex-1 flex justify-center max-w-3xl px-8">
+            <form onSubmit={handleHeaderSearchSubmit} className="relative w-full group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                <div className="bg-slate-800 p-2 rounded-xl">
+                  <Sparkles className="h-5 w-5 text-white animate-pulse" />
+                </div>
+              </div>
               <input
                 type="text"
-                placeholder="Search messages"
-                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-20 pr-20 py-4 bg-slate-900 border border-slate-700 focus:border-slate-500 focus:ring-4 focus:ring-slate-800 rounded-2xl text-base transition-all placeholder-white font-medium outline-none shadow-sm text-white hover:shadow-md hover:border-slate-600"
+                placeholder="Ask anything..."
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
               />
-            </div>
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 text-xs">|</span>
+                  <kbd className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 border border-slate-600 border-b-2 rounded-lg text-[10px] font-bold text-slate-300 tracking-wider">
+                    ⌘ K
+                  </kbd>
+                </div>
+              </div>
+            </form>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {conversations
-              .filter(c => c.userName.toLowerCase().includes(searchQuery.toLowerCase()))
-              .map(conversation => (
-                <button
-                  key={conversation.userId}
-                  onClick={() => setSelectedConversation(conversation.userId)}
-                  className={`w - full flex items - start gap - 3 p - 4 hover: bg - gray - 50 text - left ${selectedConversation === conversation.userId ? 'bg-blue-50' : ''
-                    } `}
-                >
-                  <img src={conversation.userAvatar} alt="" className="w-12 h-12 rounded-full" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm text-gray-900 truncate">{conversation.userName}</h3>
-                    </div>
-                    <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
-                  </div>
-                </button>
-              ))}
+
+          {/* Icons */}
+          <div className="flex items-center gap-8 flex-shrink-0">
+            <ActionItem icon={<Home className="w-7 h-7" />} label="Home" onClick={() => onNavigate('home')} />
+            <ActionItem icon={<Users className="w-7 h-7" />} label="Network" onClick={() => onNavigate('network')} />
+            <ActionItem icon={<Bell className="w-7 h-7" />} label="Alerts" badge={false} onClick={() => onNavigate('notifications')} />
+            <ActionItem icon={<MessageSquare className="w-7 h-7" />} label="Inbox" onClick={() => onNavigate('messages')} />
+            <ActionItem icon={<BrainCircuit className="w-7 h-7" />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
           </div>
         </div>
+      </div>
 
-        {/* Chat Area */}
-        {selectedConversation && selectedUser ? (
-          <div className="flex-1 flex flex-col bg-[#0b141a]"> {/* WhatsApp Dark BG */}
-            {/* Header */}
-            <div className="p-4 bg-[#202c33] border-b border-[#2a3942] flex items-center justify-between text-[#e9edef]">
-              <div className="flex items-center gap-3">
-                <img src={selectedUser.userAvatar} alt="" className="w-10 h-10 rounded-full" />
-                <h3 className="text-[#e9edef] font-medium">{selectedUser.userName}</h3>
-              </div>
-            </div>
+      {/* --- Main Content (Messages Layout) --- */}
+      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-6 overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200 h-full flex overflow-hidden shadow-sm">
 
-            {/* Messages List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat bg-[length:400px]">
-              {messages.map(msg => {
-                const isMe = msg.senderId === currentUser.id;
-                return (
-                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} `}>
-                    <div className={`max - w - [65 %] rounded - lg px - 3 py - 2 text - sm relative shadow - sm ${isMe ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-                      } `}>
-                      {msg.type === 'text' && <p>{msg.content}</p>}
-                      {msg.type === 'image' && <img src={msg.content} alt="Shared" className="rounded-lg max-w-full" />}
-                      {msg.type === 'file' && (
-                        <a
-                          href={msg.content}
-                          download={msg.fileName || 'download'}
-                          className="flex items-center gap-2 bg-black/20 p-2 rounded hover:bg-black/30 transition-colors cursor-pointer text-inherit no-underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <File className="w-5 h-5" />
-                          <span className="truncate hover:underline">{msg.fileName}</span>
-                        </a>
-                      )}
-                      <p className="text-[10px] text-gray-400 text-right mt-1">
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            {/* Input Area */}
-            <div className="bg-[#202c33] flex flex-col">
-              {/* Preview Area */}
-              {previewAttachment && (
-                <div className="p-3 bg-[#2a3942] border-b border-[#202c33] flex items-center justify-between mx-4 mt-2 rounded-t-lg">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    {previewAttachment.type === 'image' ? (
-                      <img src={previewAttachment.content} alt="Preview" className="h-16 w-16 object-cover rounded" />
-                    ) : (
-                      <div className="h-16 w-16 bg-black/20 flex items-center justify-center rounded">
-                        <File className="w-8 h-8 text-[#e9edef]" />
-                      </div>
-                    )}
-                    <span className="text-[#e9edef] text-sm truncate max-w-[200px]">{previewAttachment.name}</span>
-                  </div>
-                  <button onClick={cancelAttachment} className="p-1 hover:bg-white/10 rounded-full text-[#e9edef]">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              )}
-
-              {/* Controls */}
-              <div className="p-3 flex items-center gap-2">
-                <button
-                  onClick={() => imageInputRef.current?.click()}
-                  className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
-                  disabled={!!previewAttachment}
-                >
-                  <Image className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
-                  disabled={!!previewAttachment}
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-
+          {/* Sidebar */}
+          <div className="w-80 border-r border-gray-200 flex flex-col">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-xl text-gray-900 mb-3">Messages</h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  value={messageText}
-                  onChange={e => setMessageText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendMessage(messageText)}
-                  placeholder={previewAttachment ? "Add a caption (optional - not supported yet)" : "Type a message"}
-                  disabled={!!previewAttachment} // Disable text input during preview for simplicity in this version
-                  className="flex-1 bg-[#2a3942] text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none disabled:opacity-50"
+                  placeholder="Search messages"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
                 />
-
-                <button
-                  onClick={() => sendMessage(messageText)}
-                  className="p-2 text-[#8696a0] hover:bg-white/5 rounded-full"
-                >
-                  <SendIcon className="w-6 h-6" />
-                </button>
-
-                <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'image')} />
-                <input type="file" ref={fileInputRef} className="hidden" onChange={e => handleFileChange(e, 'file')} />
               </div>
             </div>
-
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-[#222e35] text-[#8696a0]">
-            <div className="text-center">
-              <p className="text-lg">Select a chat to start messaging</p>
-              <p className="text-sm mt-2">End-to-end encrypted</p>
+            <div className="flex-1 overflow-y-auto">
+              {conversations
+                .filter(c => c.userName.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(conversation => (
+                  <button
+                    key={conversation.userId}
+                    onClick={() => setSelectedConversation(conversation.userId)}
+                    className={`w-full flex items-start gap-3 p-4 hover:bg-gray-50 text-left ${selectedConversation === conversation.userId ? 'bg-blue-50' : ''
+                      } `}
+                  >
+                    <img src={conversation.userAvatar} alt="" className="w-12 h-12 rounded-full" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm text-gray-900 truncate">{conversation.userName}</h3>
+                      </div>
+                      <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
+                    </div>
+                  </button>
+                ))}
             </div>
           </div>
-        )}
+
+          {/* Chat Area */}
+          {selectedConversation && selectedUser ? (
+            <div className="flex-1 flex flex-col bg-[#0b141a]"> {/* WhatsApp Dark BG */}
+              {/* Header */}
+              <div className="p-4 bg-[#202c33] border-b border-[#2a3942] flex items-center justify-between text-[#e9edef]">
+                <div className="flex items-center gap-3">
+                  <img src={selectedUser.userAvatar} alt="" className="w-10 h-10 rounded-full" />
+                  <h3 className="text-[#e9edef] font-medium">{selectedUser.userName}</h3>
+                </div>
+              </div>
+
+              {/* Messages List */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat bg-[length:400px]">
+                {messages.map(msg => {
+                  const isMe = msg.senderId === currentUser.id;
+                  return (
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} `}>
+                      <div className={`max-w-[65%] rounded-lg px-3 py-2 text-sm relative shadow-sm ${isMe ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
+                        } `}>
+                        {msg.type === 'text' && <p>{msg.content}</p>}
+                        {msg.type === 'image' && <img src={msg.content} alt="Shared" className="rounded-lg max-w-full" />}
+                        {msg.type === 'file' && (
+                          <a
+                            href={msg.content}
+                            download={msg.fileName || 'download'}
+                            className="flex items-center gap-2 bg-black/20 p-2 rounded hover:bg-black/30 transition-colors cursor-pointer text-inherit no-underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <File className="w-5 h-5" />
+                            <span className="truncate hover:underline">{msg.fileName}</span>
+                          </a>
+                        )}
+                        <p className="text-[10px] text-gray-400 text-right mt-1">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Area */}
+              <div className="bg-[#202c33] flex flex-col">
+                {/* Preview Area */}
+                {previewAttachment && (
+                  <div className="p-3 bg-[#2a3942] border-b border-[#202c33] flex items-center justify-between mx-4 mt-2 rounded-t-lg">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {previewAttachment.type === 'image' ? (
+                        <img src={previewAttachment.content} alt="Preview" className="h-16 w-16 object-cover rounded" />
+                      ) : (
+                        <div className="h-16 w-16 bg-black/20 flex items-center justify-center rounded">
+                          <File className="w-8 h-8 text-[#e9edef]" />
+                        </div>
+                      )}
+                      <span className="text-[#e9edef] text-sm truncate max-w-[200px]">{previewAttachment.name}</span>
+                    </div>
+                    <button onClick={cancelAttachment} className="p-1 hover:bg-white/10 rounded-full text-[#e9edef]">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div className="p-3 flex items-center gap-2">
+                  <button
+                    onClick={() => imageInputRef.current?.click()}
+                    className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
+                    disabled={!!previewAttachment}
+                  >
+                    <Image className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
+                    disabled={!!previewAttachment}
+                  >
+                    <Plus className="w-6 h-6" />
+                  </button>
+
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={e => setMessageText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && sendMessage(messageText)}
+                    placeholder={previewAttachment ? "Add a caption (optional - not supported yet)" : "Type a message"}
+                    disabled={!!previewAttachment}
+                    className="flex-1 bg-[#2a3942] text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none disabled:opacity-50"
+                  />
+
+                  <button
+                    onClick={() => sendMessage(messageText)}
+                    className="p-2 text-[#8696a0] hover:bg-white/5 rounded-full"
+                  >
+                    <SendIcon className="w-6 h-6" />
+                  </button>
+
+                  <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'image')} />
+                  <input type="file" ref={fileInputRef} className="hidden" onChange={e => handleFileChange(e, 'file')} />
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-[#222e35] text-[#8696a0]">
+              <div className="text-center">
+                <p className="text-lg">Select a chat to start messaging</p>
+                <p className="text-sm mt-2">End-to-end encrypted</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

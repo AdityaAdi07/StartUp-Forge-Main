@@ -1,0 +1,107 @@
+[
+    {
+        "id": 1,
+        "name": "Mark Suster",
+        "headline": "General Partner at Upfront Ventures",
+        "firm_name": "Upfront Ventures",
+        "avatar": "https://randomuser.me/api/portraits/men/1.jpg"
+    },
+    {
+        "id": 2,
+        "name": "Elizabeth Yin",
+        "headline": "GP at Hustle Fund",
+        "firm_name": "Hustle Fund",
+        "avatar": "https://randomuser.me/api/portraits/women/2.jpg"
+    },
+    {
+        "id": 3,
+        "name": "Pete Flint",
+        "headline": "General Partner at NFX",
+        "firm_name": "NFX",
+        "avatar": "https://randomuser.me/api/portraits/men/3.jpg"
+    },
+    {
+        "id": 4,
+        "name": "Gokul Rajaram",
+        "headline": "Angel Investor & Product at DoorDash",
+        "firm_name": "DoorDash / Angel",
+        "avatar": "https://randomuser.me/api/portraits/men/4.jpg"
+    },
+    {
+        "id": 5,
+        "name": "Mike Brown Jr",
+        "headline": "General Partner at Bowery Capital",
+        "firm_name": "Bowery Capital",
+        "avatar": "https://randomuser.me/api/portraits/men/5.jpg"
+    },
+    {
+        "id": 6,
+        "name": "Nihal Mehta",
+        "headline": "Founding GP at Eniac Ventures",
+        "firm_name": "Eniac Ventures",
+        "avatar": "https://randomuser.me/api/portraits/men/6.jpg"
+    },
+    {
+        "id": 7,
+        "name": "Adam Draper",
+        "headline": "Managing Director at Boost VC",
+        "firm_name": "Boost VC",
+        "avatar": "https://randomuser.me/api/portraits/men/7.jpg"
+    },
+    {
+        "id": 8,
+        "name": "Bill Gurley",
+        "headline": "General Partner at Benchmark",
+        "firm_name": "Benchmark",
+        "avatar": "https://randomuser.me/api/portraits/men/8.jpg"
+    },
+    {
+        "id": 9,
+        "name": "Marc Andreessen",
+        "headline": "Co-founder at a16z",
+        "firm_name": "Andreessen Horowitz",
+        "avatar": "https://randomuser.me/api/portraits/men/9.jpg"
+    },
+    {
+        "id": 10,
+        "name": "Ben Horowitz",
+        "headline": "Co-founder at a16z",
+        "firm_name": "Andreessen Horowitz",
+        "avatar": "https://randomuser.me/api/portraits/men/10.jpg"
+    },
+    {
+        "id": 11,
+        "name": "Mary Meeker",
+        "headline": "General Partner at BOND",
+        "firm_name": "BOND",
+        "avatar": "https://randomuser.me/api/portraits/women/11.jpg"
+    },
+    {
+        "id": 12,
+        "name": "Peter Thiel",
+        "headline": "Partner at Founders Fund",
+        "firm_name": "Founders Fund",
+        "avatar": "https://randomuser.me/api/portraits/men/12.jpg"
+    },
+    {
+        "id": 13,
+        "name": "Reid Hoffman",
+        "headline": "Partner at Greylock",
+        "firm_name": "Greylock Partners",
+        "avatar": "https://randomuser.me/api/portraits/men/13.jpg"
+    },
+    {
+        "id": 14,
+        "name": "Vinod Khosla",
+        "headline": "Founder at Khosla Ventures",
+        "firm_name": "Khosla Ventures",
+        "avatar": "https://randomuser.me/api/portraits/men/14.jpg"
+    },
+    {
+        "id": 15,
+        "name": "Alfred Lin",
+        "headline": "Partner at Sequoia",
+        "firm_name": "Sequoia Capital",
+        "avatar": "https://randomuser.me/api/portraits/men/15.jpg"
+    }
+]

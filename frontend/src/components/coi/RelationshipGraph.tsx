@@ -1,15 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Network, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface RelationshipGraphProps {
-  investorName: string;
-  targetCompany: string;
-  conflictLevel: number;
-  conflicts: any[]; // Level 2 data
-  level1Companies: string[];
-}
 
 interface Node {
   id: string;
@@ -26,65 +19,73 @@ interface Edge {
   label?: string;
 }
 
-const RelationshipGraph = ({ investorName, targetCompany, conflictLevel, conflicts, level1Companies }: RelationshipGraphProps) => {
+interface RelationshipGraphProps {
+  investorName?: string;
+  targetCompany?: string;
+  conflictLevel?: number;
+  conflicts?: any[];
+  level1Companies?: string[];
+}
+
+const RelationshipGraph = ({ investorName, targetCompany, conflictLevel = 0, conflicts = [], level1Companies = [] }: RelationshipGraphProps) => {
   const [zoom, setZoom] = useState(1);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  // Dynamic Graph Generation
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
   useEffect(() => {
-    // --- Transform Props to Graph Data ---
+    if (!investorName && !targetCompany) {
+      // Fallback to demo data if nothing passed
+      setNodes([
+        { id: "1", label: "Sequoia Capital", type: "investor", x: 100, y: 150 },
+        { id: "2", label: "John Smith", type: "founder", x: 280, y: 80 },
+        { id: "3", label: "TechCorp Inc.", type: "company", x: 280, y: 220 },
+        { id: "4", label: "Sarah Williams", type: "founder", x: 460, y: 150 },
+        { id: "5", label: "Acme Technologies", type: "target", x: 640, y: 150 },
+      ]);
+      setEdges([
+        { from: "1", to: "2", type: "direct", label: "Investor" },
+        { from: "1", to: "3", type: "direct", label: "Board Seat" },
+        { from: "2", to: "3", type: "direct", label: "CEO" },
+        { from: "3", to: "4", type: "indirect", label: "Advisor" },
+        { from: "4", to: "5", type: "direct", label: "Co-founder" },
+      ]);
+      return;
+    }
+
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
-    // 1. Investor Node (Root)
-    newNodes.push({ id: "investor", label: investorName || "Investor", type: "investor", x: 100, y: 150 });
-
-    // 2. Target Node (End)
-    newNodes.push({ id: "target", label: targetCompany || "Target", type: "target", x: 650, y: 150 });
+    // Base Nodes
+    newNodes.push({ id: "inv", label: investorName || "Investor", type: "investor", x: 100, y: 150 });
+    newNodes.push({ id: "tgt", label: targetCompany || "Target", type: "target", x: 700, y: 150 });
 
     if (conflictLevel === 1) {
-      // Level 1: Investor -> [Company] -> ... Target (Conceptual overlap)
-      // For Level 1 we usually show they invest in a competitor.
-      // Let's visualize: Investor -> Company (Competitor)
-      level1Companies.forEach((company, i) => {
-        const nodeId = `comp-${i}`;
-        const offsetY = 150 + (i - (level1Companies.length - 1) / 2) * 80; // Spread vertically
-
-        newNodes.push({ id: nodeId, label: company, type: "company", x: 375, y: offsetY });
-
-        // Edges
-        newEdges.push({ from: "investor", to: nodeId, type: "direct", label: "Invests In" });
-        newEdges.push({ from: nodeId, to: "target", type: "indirect", label: "Sector Overlap" });
+      // Level 1: Investor -> Company -> (Sector) -> Target
+      // We draw Company in middle.
+      level1Companies.slice(0, 3).forEach((comp, i) => {
+        const id = `l1-${i}`;
+        newNodes.push({ id, label: comp, type: "company", x: 400, y: 100 + (i * 80) });
+        newEdges.push({ from: "inv", to: id, type: "direct", label: "Invested In" });
+        newEdges.push({ from: id, to: "tgt", type: "indirect", label: "Direct Competitor" });
       });
-
     } else if (conflictLevel === 2) {
       // Level 2: Investor -> Parent -> Subsidiary -> Target
-      // Or: Investor -> Parent -> Subsidiary (diff) vs Target
-      // Based on data: "investedParent" owns "competingSubsidiary"
-      conflicts.forEach((c, i) => {
-        const parentId = `parent-${i}`;
-        const subId = `sub-${i}`;
+      conflicts.slice(0, 2).forEach((conf, i) => {
+        const pid = `p-${i}`;
+        const sid = `s-${i}`;
+        const yOffset = i * 100;
 
-        // Spread nodes
-        const verticalBase = 150;
-        const spread = 100;
-        const yPos = verticalBase + (i - (conflicts.length - 1) / 2) * spread;
+        newNodes.push({ id: pid, label: conf.investedParent, type: "company", x: 300, y: 100 + yOffset });
+        newNodes.push({ id: sid, label: conf.competingSubsidiary, type: "company", x: 500, y: 100 + yOffset });
 
-        newNodes.push({ id: parentId, label: c.investedParent, type: "company", x: 280, y: yPos });
-        newNodes.push({ id: subId, label: c.competingSubsidiary, type: "company", x: 460, y: yPos });
-
-        newEdges.push({ from: "investor", to: parentId, type: "direct", label: "Invests In" });
-        newEdges.push({ from: parentId, to: subId, type: "direct", label: "Owns" });
-        newEdges.push({ from: subId, to: "target", type: "indirect", label: "Competes With" });
+        newEdges.push({ from: "inv", to: pid, type: "direct", label: "Invested In" });
+        newEdges.push({ from: pid, to: sid, type: "direct", label: "Subsidiary" });
+        newEdges.push({ from: sid, to: "tgt", type: "indirect", label: "Competes With" });
       });
-    } else {
-      // No Conflict - Just show discrete nodes
-      // Maybe a dotted line or nothing
     }
-
-    // If no conflicts, we might want to show direct link if they are connected? 
-    // For now, if no conflict, the graph will just show Investor and Target disconnected.
 
     setNodes(newNodes);
     setEdges(newEdges);
@@ -115,6 +116,7 @@ const RelationshipGraph = ({ investorName, targetCompany, conflictLevel, conflic
   const getEdgePath = (from: Node, to: Node) => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
+    // Simple Bezier
     const cx1 = from.x + dx * 0.4;
     const cy1 = from.y;
     const cx2 = from.x + dx * 0.6;
@@ -153,21 +155,16 @@ const RelationshipGraph = ({ investorName, targetCompany, conflictLevel, conflic
             >
               <ZoomIn className="h-5 w-5" />
             </Button>
-            <div className="w-px h-6 bg-border mx-1" />
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white transition-all">
-              <Maximize2 className="h-5 w-5" />
-            </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-0">
-        <div id="relationship-graph-container" className="relative border-t border-border/50 bg-[#F8FAFC] overflow-hidden" style={{ height: 400 }}>
+        <div className="relative border-t border-border/50 bg-[#F8FAFC] overflow-hidden" style={{ height: 400 }}>
           <svg
-            id="relationship-graph-svg"
             width="100%"
             height="100%"
-            viewBox="0 0 760 300"
+            viewBox="0 0 800 400"
             style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
             className="transition-transform duration-200"
           >

@@ -1,0 +1,114 @@
+[
+    {
+        "name": "Alec John Marsh",
+        "company": "Advano",
+        "domain": "advano.com",
+        "headline": "Founder at Advano",
+        "avatar": "https://randomuser.me/api/portraits/men/32.jpg"
+    },
+    {
+        "name": "Alexander Wang",
+        "company": "Scale AI",
+        "domain": "scale.com",
+        "headline": "Founder at Scale AI",
+        "avatar": "https://randomuser.me/api/portraits/men/45.jpg"
+    },
+    {
+        "name": "Emilie and Edward",
+        "company": "Blueprint",
+        "domain": "emhpa.com",
+        "headline": "Founders at Blueprint",
+        "avatar": "https://randomuser.me/api/portraits/women/44.jpg"
+    },
+    {
+        "name": "Brian Glazer",
+        "company": "Briq",
+        "domain": "briq.com",
+        "headline": "Founder at Briq",
+        "avatar": "https://randomuser.me/api/portraits/men/22.jpg"
+    },
+    {
+        "name": "Wang Xing",
+        "company": "Meituan",
+        "domain": "meituan.com",
+        "headline": "Founder at Meituan",
+        "avatar": "https://randomuser.me/api/portraits/men/11.jpg"
+    },
+    {
+        "name": "Pierre Omidyar",
+        "company": "eBay",
+        "domain": "ebay.com",
+        "headline": "Founder at eBay",
+        "avatar": "https://randomuser.me/api/portraits/men/55.jpg"
+    },
+    {
+        "name": "Alexey Yulin",
+        "company": "Candex",
+        "domain": "candex.com",
+        "headline": "Founder at Candex",
+        "avatar": "https://randomuser.me/api/portraits/men/67.jpg"
+    },
+    {
+        "name": "Melanie Perkins",
+        "company": "Canva",
+        "domain": "canva.com",
+        "headline": "Co-founder & CEO at Canva",
+        "avatar": "https://randomuser.me/api/portraits/women/23.jpg"
+    },
+    {
+        "name": "Dylan Field",
+        "company": "Figma",
+        "domain": "figma.com",
+        "headline": "Co-founder at Figma",
+        "avatar": "https://randomuser.me/api/portraits/men/86.jpg"
+    },
+    {
+        "name": "Henrique Dubugras",
+        "company": "Brex",
+        "domain": "brex.com",
+        "headline": "Co-CEOs at Brex",
+        "avatar": "https://randomuser.me/api/portraits/men/12.jpg"
+    },
+    {
+        "name": "Alexandr Wang",
+        "company": "Scale AI",
+        "domain": "scale.com",
+        "headline": "CEO at Scale AI",
+        "avatar": "https://randomuser.me/api/portraits/men/33.jpg"
+    },
+    {
+        "name": "Parker Conrad",
+        "company": "Rippling",
+        "domain": "rippling.com",
+        "headline": "CEO at Rippling",
+        "avatar": "https://randomuser.me/api/portraits/men/41.jpg"
+    },
+    {
+        "name": "Nik Storonsky",
+        "company": "Revolut",
+        "domain": "revolut.com",
+        "headline": "Founder at Revolut",
+        "avatar": "https://randomuser.me/api/portraits/men/51.jpg"
+    },
+    {
+        "name": "Guillaume Pousaz",
+        "company": "Checkout.com",
+        "domain": "checkout.com",
+        "headline": "Founder at Checkout.com",
+        "avatar": "https://randomuser.me/api/portraits/men/61.jpg"
+    },
+    {
+        "name": "Sebastian Siemiatkowski",
+        "company": "Klarna",
+        "domain": "klarna.com",
+        "headline": "CEO at Klarna",
+        "avatar": "https://randomuser.me/api/portraits/men/71.jpg"
+    },
+    {
+        "name": "Jensen Huang",
+        "company": "NVIDIA",
+        "domain": "nvidia.com",
+        "headline": "CEO at NVIDIA",
+        "avatar": "https://randomuser.me/api/portraits/men/91.jpg"
+    }
+]

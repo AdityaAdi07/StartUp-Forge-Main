@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Gun from 'gun/gun';
 import 'gun/sea';
 import 'gun/axe';
@@ -15,7 +15,9 @@ import { CreatePostModal } from './components/CreatePostModal';
 import ConflictReportPage from './components/ConflictReportPage';
 import { Toaster } from './components/ui/sonner';
 
-// --- Types ---
+// Import Data
+import foundersData from './data/founders.json';
+import investorsData from './data/investors.json';
 export type User = {
   id: string;
   name: string;
@@ -204,6 +206,11 @@ function App() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [extraSearchResults, setExtraSearchResults] = useState<User[]>([]);
+
+  // RAG Search State
+  const [isSearching, setIsSearching] = useState(false);
+  const [ragResults, setRagResults] = useState<{ founders: string[], investors: string[] }>({ founders: [], investors: [] });
+  const timeoutId = useRef<NodeJS.Timeout | null>(null);
 
   // Domain State
   const [connectedUsers, setConnectedUsers] = useState<Set<string>>(new Set());
@@ -557,16 +564,9 @@ function App() {
   };
 
   // --- RAG SEARCH INTEGRATION ---
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (query.length < 2) {
-      setExtraSearchResults([]);
-      return;
-    }
-
-    // Debounce basic implementation by not running immediately? 
-    // In React state updates are batched, but for API calls we might need a useEffect or a timeout.
-    // For simplicity, we call directly but catch errors silently.
+  const performSearch = async (query: string) => {
+    setIsSearching(true);
+    setRagResults({ founders: [], investors: [] });
 
     try {
       // Parallel fetch
@@ -574,76 +574,56 @@ function App() {
         fetch('http://127.0.0.1:8000/search/founders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, top_k: 3 })
-        }),
+          body: JSON.stringify({ query, top_k: 5 })
+        }).catch(err => { console.error("Founders Fetch Err:", err); return null; }),
         fetch('http://127.0.0.1:8000/search/investors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, top_k: 3 })
-        })
+          body: JSON.stringify({ query, top_k: 5 })
+        }).catch(err => { console.error("Investors Fetch Err:", err); return null; })
       ]);
 
-      const foundersData = await foundersRes.json();
-      const investorsData = await investorsRes.json();
+      let fResults = [];
+      let iResults = [];
 
-      const newResults: User[] = [];
-
-      // Process founders
-      if (foundersData.results) {
-        foundersData.results.forEach((r: any) => {
-          const meta = r.metadata || {};
-          newResults.push({
-            id: r.id || `rag-${Math.random()}`,
-            name: meta.name || "Unknown Founder",
-            headline: meta.company ? `Founder at ${meta.company}` : "Founder",
-            avatar: 'https://cdn-icons-png.flaticon.com/512/1077/1077114.png',
-            coverImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200',
-            connections: 0,
-            about: meta.funding_round ? `Funding Round: ${meta.funding_round}` : r.text,
-            experience: meta.company || '-',
-            role: 'founder',
-            education: '-',
-            primaryDomain: meta.primary_domain,
-            secondaryDomain: meta.secondary_domain,
-            website: meta.website,
-            linkedin: meta.linkedin_url,
-            isActive: true
-          });
-        });
+      if (foundersRes && foundersRes.ok) {
+        const data = await foundersRes.json();
+        fResults = data.results || [];
       }
 
-      // Process investors
-      if (investorsData.results) {
-        investorsData.results.forEach((r: any) => {
-          const meta = r.metadata || {};
-          newResults.push({
-            id: r.id || `rag-${Math.random()}`,
-            name: meta.name || "Unknown Investor",
-            headline: meta.firm_name ? `Investor at ${meta.firm_name}` : "Investor",
-            avatar: meta.is_active ? '/active_investor_dp.png' : '/inactive_investor_dp.png',
-            coverImage: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200',
-            connections: 0,
-            about: meta.domain ? `Interested in: ${meta.domain}` : r.text,
-            experience: meta.firm_name || '-',
-            role: 'investor',
-            education: '-',
-            pastInvestments: meta.past_investments,
-            investmentStage: meta.investment_stage_pref,
-            primaryDomain: meta.primary_domain,
-            secondaryDomain: meta.secondary_domain,
-            website: meta.website,
-            linkedin: meta.linkedin_url,
-            isActive: meta.is_active
-          });
-        });
+      if (investorsRes && investorsRes.ok) {
+        const data = await investorsRes.json();
+        iResults = data.results || [];
       }
 
-      setExtraSearchResults(newResults);
+      setRagResults({
+        founders: fResults,
+        investors: iResults
+      });
 
     } catch (err) {
       console.error("RAG Search failed", err);
-      // Optional: don't break the UI, just don't show RAG results
+    } finally {
+      setIsSearching(false);
     }
+  };
+
+  const handleQueryChange = (query: string) => {
+    setSearchQuery(query);
+    if (query.length < 2) {
+      setRagResults({ founders: [], investors: [] });
+      return;
+    }
+
+    if (timeoutId.current) clearTimeout(timeoutId.current);
+    timeoutId.current = setTimeout(() => {
+      performSearch(query);
+    }, 500);
+  };
+
+  const handleSearch = (query: string) => {
+    if (timeoutId.current) clearTimeout(timeoutId.current);
+    performSearch(query);
   };
 
   const filteredUsers = searchQuery
@@ -723,43 +703,50 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
-      <NavigationBar
-        canGoBack={historyIndex > 0}
-        canGoForward={historyIndex < history.length - 1}
-        onBack={goBack}
-        onForward={goForward}
-        currentPage={currentPage}
-        onNavigate={(page) => {
-          if (page === 'home') {
-            navigateTo('home');
-          } else if (page === 'profile') {
-            navigateTo('profile', 'current-user');
-          } else if (page === 'messages') {
-            navigateTo('messages');
-          } else if (page === 'network') {
-            navigateTo('network');
-          } else if (page === 'notifications') {
-            navigateTo('notifications');
-          } else if (page === 'jobs') {
-            navigateTo('jobs');
-          }
-        }}
-        onSearch={handleSearch}
-        searchResults={filteredUsers}
-        onSelectUser={(userId) => navigateTo('profile', userId)}
-      />
+      {currentPage !== 'home' && currentPage !== 'network' && currentPage !== 'notifications' && currentPage !== 'messages' && currentPage !== 'conflict-report' && (
+        <NavigationBar
+          canGoBack={historyIndex > 0}
+          canGoForward={historyIndex < history.length - 1}
+          onBack={goBack}
+          onForward={goForward}
+          currentPage={currentPage}
+          onNavigate={(page) => {
+            if (page === 'home') {
+              navigateTo('home');
+            } else if (page === 'profile') {
+              navigateTo('profile', 'current-user');
+            } else if (page === 'messages') {
+              navigateTo('messages');
+            } else if (page === 'network') {
+              navigateTo('network');
+            } else if (page === 'notifications') {
+              navigateTo('notifications');
+            } else if (page === 'jobs') {
+              navigateTo('jobs');
+            }
+          }}
+          onSearch={handleSearch}
+          searchResults={filteredUsers}
+          onSelectUser={(userId) => navigateTo('profile', userId)}
+        />
+      )}
 
       {currentPage === 'home' && (
         <HomePage
-          posts={posts}
           currentUser={currentUser}
-          onLikePost={handleLikePost}
-          onViewProfile={(userId) => navigateTo('profile', userId)}
-          onAddComment={handleAddComment}
-          onSavePost={handleSavePost}
-          onRepost={handleRepost}
-          onUnfollow={handleUnfollow}
-          onCreatePost={() => setShowCreatePost(true)}
+          onNavigate={(page) => {
+            if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+            else if (page === 'jobs') navigateTo('jobs');
+            else if (page === 'home') navigateTo('home');
+          }}
+          onSearch={handleSearch}
+          onQueryChange={handleQueryChange}
+          ragResults={ragResults}
+          isSearching={isSearching}
         />
       )}
 
@@ -777,6 +764,20 @@ function App() {
 
       {currentPage === 'conflict-report' && (
         <ConflictReportPage
+          currentUser={currentUser}
+          onNavigate={(page) => {
+            if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+            else if (page === 'jobs') navigateTo('jobs');
+            else navigateTo('home');
+          }}
+          onSearch={handleSearch}
+          onQueryChange={handleQueryChange}
+          ragResults={ragResults}
+          isSearching={isSearching}
           onBack={goBack}
           currentInvestorName={currentUser.name}
           targetCompanyName={viewingUser.experience || "Kapital"}
@@ -791,6 +792,15 @@ function App() {
           currentUser={currentUser}
           onViewProfile={(userId) => navigateTo('profile', userId)}
           targetUserId={targetChatUserId}
+          onNavigate={(page) => {
+            if (page === 'home') navigateTo('home');
+            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+          }}
+          onSearch={handleSearch}
         />
       )}
 
@@ -798,12 +808,35 @@ function App() {
         <NetworkPage
           currentUser={currentUser}
           suggestedUsers={users}
+          founders={foundersData.map((f: any, i: number) => ({
+            id: `founder-${i}`,
+            name: f.name,
+            headline: f.headline || f.company,
+            avatar: f.avatar,
+            connections: Math.floor(Math.random() * 500) + 50
+          }))}
+          investors={investorsData.map((i: any) => ({
+            id: `investor-${i.id}`,
+            name: i.name,
+            headline: i.headline || i.firm_name,
+            avatar: i.avatar,
+            connections: Math.floor(Math.random() * 500) + 50
+          }))}
           followedUsers={followedUsers}
           connectedUsers={connectedUsers}
           onAcceptRequest={handleAcceptRequest}
           onRejectRequest={handleRejectRequest}
           onFollowUser={handleSendConnectionRequest}
           onViewProfile={(userId) => navigateTo('profile', userId)}
+          onNavigate={(page) => {
+            if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+            else if (page === 'jobs') navigateTo('jobs');
+            else if (page === 'home') navigateTo('home');
+          }}
         />
       )}
 
@@ -811,6 +844,16 @@ function App() {
         <NotificationsPage
           currentUser={currentUser}
           onViewJob={(jobId) => navigateTo('jobs')}
+          onNavigate={(page) => {
+            if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+            else if (page === 'jobs') navigateTo('jobs');
+            else if (page === 'home') navigateTo('home');
+          }}
+          onSearch={handleSearch}
           onNavigateToChat={(userId) => {
             setTargetChatUserId(userId);
             navigateTo('messages');
