@@ -4,7 +4,7 @@ const neo4j = require('neo4j-driver');
 const router = express.Router();
 
 const driver = neo4j.driver(
-    "bolt://localhost:7687",
+    process.env.NEO4J_URI || "bolt://localhost:7687",
     neo4j.auth.basic("neo4j", "StrongPassword123")
 );
 
@@ -19,16 +19,48 @@ router.post("/check", async (req, res) => {
 
     const session = driver.session();
 
+    // --- HARDCODED DEMO LOGIC FOR LEVEL 2 CONFLICT ---
+    if (investorName.toLowerCase().includes("mark suster")) {
+        const HARDCODED_TARGETS = {
+            "arkose labs": 65,
+            "backops ai": 75,
+            "bitmine immersion technologies": 85
+        };
+        
+        const targetKey = targetCompany.toLowerCase();
+        
+        if (HARDCODED_TARGETS[targetKey]) {
+            return res.json({
+                hasConflict: true,
+                conflictLevel: 2,
+                conflictType: "ownership + competition (Hardcoded Demo)",
+                confidence: "derived",
+                score: HARDCODED_TARGETS[targetKey], // User requested scores 65, 75, 85
+                investor: investorName,
+                targetCompany,
+                conflicts: [
+                    {
+                        investedParent: "SoftBank Group",
+                        competingSubsidiary: "Tech Vision Fund"
+                    }
+                ],
+                reason: `Level 2 Conflict: Investor has indirect exposure via SoftBank Group which backs a direct competitor to ${targetCompany}. (Risk Score: ${HARDCODED_TARGETS[targetKey]})`
+            });
+        }
+    }
+    // -------------------------------------------------
+
     try {
         /* ======================================================
            🔴 LEVEL 2 — HARD COI (DERIVED: Parent + Competition)
            ====================================================== */
 
         const level2Query = `
-      MATCH (i:Investor {name: $investorName})
-            -[:INVESTED_IN_PARENT]->(parent:Company)
+      MATCH (i:Investor) WHERE toLower(i.name) = toLower($investorName)
+      MATCH (target:Company) WHERE toLower(target.name) = toLower($targetCompany)
+      MATCH (i)-[:INVESTED_IN]->(parent:Company)
             -[:HAS_SUBSIDIARY]->(sub:Company)
-            -[:COMPETES_WITH]->(target:Company {name: $targetCompany})
+            -[:COMPETES_WITH]->(target)
       RETURN
         parent.name AS invested_parent,
         sub.name AS competing_subsidiary
@@ -61,11 +93,10 @@ router.post("/check", async (req, res) => {
            ====================================================== */
 
         const level1Query = `
-      MATCH (i:Investor {name: $investorName})
-            -[:INVESTED_IN]->(c1:Company)
-            -[:OPERATES_IN]->(s:Sector)
-      MATCH (target:Company {name: $targetCompany})
-            -[:OPERATES_IN]->(s)
+      MATCH (i:Investor) WHERE toLower(i.name) = toLower($investorName)
+      MATCH (target:Company) WHERE toLower(target.name) = toLower($targetCompany)
+      MATCH (i)-[:INVESTED_IN]->(c1:Company)-[:OPERATES_IN]->(s:Domain)
+      MATCH (target)-[:OPERATES_IN]->(s)
       WHERE c1.name <> target.name
       RETURN
         s.name AS sector,

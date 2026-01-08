@@ -51,9 +51,11 @@ export function NetworkPage({
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // splitting logic removed as we now receive clear lists
+  // Local state for Real Data
+  const [realFounders, setRealFounders] = useState<AppUser[]>([]);
+  const [realInvestors, setRealInvestors] = useState<AppUser[]>([]);
 
-
+  // Fetch Connection Requests (Invitations)
   const fetchRequests = async () => {
     try {
       if (!currentUser.id) return;
@@ -65,7 +67,7 @@ export function NetworkPage({
         const mapped = data.map((r: any) => ({
           id: r.id,
           userId: String(r.sender_id),
-          userName: `User ${r.sender_id}`,
+          userName: `User ${r.sender_id}`, // Ideally fetch name
           userHeadline: r.sender_role || 'Founder',
           userAvatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
           mutualConnections: 0
@@ -77,9 +79,40 @@ export function NetworkPage({
     }
   };
 
+  // Fetch All Users for Network (Founders & Investors)
+  const fetchNetwork = async () => {
+    if (!currentUser.id) return;
+    try {
+      console.log("Fetching network for user:", currentUser.id);
+      const [fRes, iRes] = await Promise.all([
+        fetch('/api/users/founders', { headers: { 'x-user-id': currentUser.id } }),
+        fetch('/api/users/investors', { headers: { 'x-user-id': currentUser.id } })
+      ]);
+
+      if (fRes.ok) {
+        const fData = await fRes.json();
+        console.log("Founders fetched:", fData.length);
+        setRealFounders(fData);
+      } else {
+        console.error("Founders fetch failed:", fRes.status);
+      }
+
+      if (iRes.ok) {
+        const iData = await iRes.json();
+        console.log("Investors fetched:", iData.length);
+        setRealInvestors(iData);
+      } else {
+        console.error("Investors fetch failed:", iRes.status);
+      }
+    } catch (e) {
+      console.error("Failed to fetch network data", e);
+    }
+  };
+
   useEffect(() => {
     if (currentUser.id) {
       fetchRequests();
+      fetchNetwork();
     }
   }, [currentUser.id]);
 
@@ -91,6 +124,7 @@ export function NetworkPage({
       });
       onAcceptRequest(reqId);
       fetchRequests();
+      fetchNetwork(); // Refresh network status
     } catch (e) { console.error(e); }
   };
 
@@ -136,16 +170,23 @@ export function NetworkPage({
           </div>
         </div>
         <button
-          onClick={() => !connectedUsers.has(user.id) && onFollowUser(user.id)}
-          disabled={connectedUsers.has(user.id)}
-          className={`p-2.5 rounded-full transition-all flex-shrink-0 ${connectedUsers.has(user.id)
+          onClick={() => {
+            if (user.id === currentUser.id) return;
+            if (!connectedUsers.has(user.id) && !(user as any).isConnected) {
+              onFollowUser(user.id);
+              // Optimistic update
+              (user as any).isConnected = true;
+            }
+          }}
+          disabled={connectedUsers.has(user.id) || (user as any).isConnected}
+          className={`p-2.5 rounded-full transition-all flex-shrink-0 ${connectedUsers.has(user.id) || (user as any).isConnected
             ? 'bg-green-50 text-green-600'
             : followedUsers.has(user.id)
               ? 'bg-gray-50 text-gray-400'
               : 'bg-slate-50 text-slate-600 hover:bg-slate-900 hover:text-white'
             }`}
         >
-          {connectedUsers.has(user.id) ? <UserCheck className="w-5 h-5" /> : followedUsers.has(user.id) ? <Check className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+          {connectedUsers.has(user.id) || (user as any).isConnected ? <UserCheck className="w-5 h-5" /> : followedUsers.has(user.id) ? <Check className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
         </button>
       </div>
     </div>
@@ -258,14 +299,14 @@ export function NetworkPage({
                 {/* Top 5 Small Profile Container */}
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Top 5 Connected</h4>
-                  {renderTopProfiles(founders)}
+                  {renderTopProfiles(realFounders)}
                 </div>
 
                 {/* All Founders Cards */}
                 <div>
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">All Founders</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    {founders.map(renderUserCard)}
+                    {realFounders.map(renderUserCard)}
                   </div>
                 </div>
               </div>
@@ -284,14 +325,14 @@ export function NetworkPage({
                 {/* Top 5 Small Profile Container */}
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Top 5 Investors</h4>
-                  {renderTopProfiles(investors)}
+                  {renderTopProfiles(realInvestors)}
                 </div>
 
                 {/* All Investors Cards */}
                 <div>
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">All Investors</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    {investors.map(renderUserCard)}
+                    {realInvestors.map(renderUserCard)}
                   </div>
                 </div>
               </div>

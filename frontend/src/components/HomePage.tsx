@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User } from '../App';
 import { SearchResultsDropdown } from './SearchResultsDropdown';
 import { Users, Bell, MessageSquare, X, BrainCircuit, Sparkles, Send, TrendingUp, PieChart, Newspaper, ArrowUpRight, ShieldCheck, Clock, Paperclip, Home } from 'lucide-react';
@@ -6,71 +6,45 @@ import ReactMarkdown from 'react-markdown';
 
 type HomePageProps = {
   currentUser: User;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, userId?: string) => void;
   onSearch: (query: string) => void;
   onQueryChange?: (query: string) => void;
   ragResults?: {
-    founders: string[];
-    investors: string[];
+    founders: { text: string; id: string }[];
+    investors: { text: string; id: string }[];
   };
   isSearching?: boolean;
 };
 
-// --- Real Data from Dataset ---
-const TOP_FOUNDERS = [
-  {
-    name: "Approximate Labs",
-    company: "Approximate Labs",
-    round: "Series A",
-    year: "2022",
-    valuation: 100000000,
-    umbrella: "TechGig"
-  },
-  {
-    name: "Rohan Sagar",
-    company: "Okra",
-    round: "Seed",
-    year: "2019",
-    valuation: 70000000,
-    umbrella: "Lybrate Technologies"
-  },
-  {
-    name: "Wang Xing",
-    company: "August",
-    round: "Series A",
-    year: "1998",
-    valuation: 50000000,
-    umbrella: "Baidupay"
-  },
-  {
-    name: "John Doe",
-    company: "Guestlist",
-    round: "Series A",
-    year: "2022",
-    valuation: 15000000,
-    umbrella: "Doe Holdings"
-  },
-  {
-    name: "Lemni",
-    company: "Lemni",
-    round: "Series A",
-    year: "2022",
-    valuation: 15000000,
-    umbrella: "PlayStation, Xbox"
-  },
-  {
-    name: "Zhao Jianyun",
-    company: "Ashvattha Therapeutics",
-    round: "Series A",
-    year: "2022",
-    valuation: 12000000,
-    umbrella: "Ashvattha Biosciences"
-  }
-];
+
 
 export function HomePage({ currentUser, onNavigate, onSearch, onQueryChange, ragResults, isSearching }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [topFounders, setTopFounders] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch Dynamic Founder Data based on User Domain
+    const fetchFounders = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/founders/rising', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser.id, role: currentUser.role })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setTopFounders(data.founders);
+        }
+      } catch (err) {
+        console.error("Error loading top founders:", err);
+      }
+    };
+
+    if (currentUser.id) {
+      fetchFounders();
+    }
+  }, [currentUser]);
 
   // Chat State
   const [chatInput, setChatInput] = useState('');
@@ -167,6 +141,7 @@ export function HomePage({ currentUser, onNavigate, onSearch, onQueryChange, rag
                   results={ragResults}
                   isVisible={true}
                   isLoading={isSearching || false}
+                  onSelectResult={(id) => onNavigate('profile', id)}
                 />
               </div>
             )}
@@ -307,7 +282,7 @@ export function HomePage({ currentUser, onNavigate, onSearch, onQueryChange, rag
                 <button className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 hover:underline">View All</button>
               </div>
               <div className="p-4 overflow-y-auto flex-1 h-full bg-gray-50/20 grid grid-cols-2 gap-4 content-start">
-                {TOP_FOUNDERS.map((founder, i) => (
+                {topFounders.map((founder, i) => (
                   <div key={i} className="flex flex-col sm:flex-row gap-4 p-4 bg-white hover:bg-slate-50 rounded-2xl border border-gray-100 hover:border-slate-200 shadow-sm hover:shadow-soft transition-all cursor-pointer group">
                     {/* Avatar & Basic Info */}
                     <div className="flex items-start gap-4 flex-1 min-w-0">

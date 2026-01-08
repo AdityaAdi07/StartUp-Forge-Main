@@ -30,7 +30,7 @@ router.post('/request', async (req, res) => {
       INSERT INTO connection_requests 
       (sender_id, sender_role, receiver_id, receiver_role, message, status)
       VALUES ($1, $2, $3, $4, $5, 'PENDING')
-    `, [sender_id, sender_role, receiver_id, receiver_role, message]);
+    `, [sender_id, sender_role.toUpperCase(), receiver_id, receiver_role.toUpperCase(), message]);
 
         res.status(201).json({ status: 'PENDING' });
 

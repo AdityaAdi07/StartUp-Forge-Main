@@ -8,16 +8,21 @@ from openai import OpenAI
 
 load_dotenv()
 
-# OpenAI / Ollama Init
-LLM_CLIENT = OpenAI(
-    base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:11434/v1"),
-    api_key=os.getenv("OPENAI_API_KEY", "ollama")
-)
+# OpenAI / Ollama Init - REPLACED WITH GEMINI
+# LLM_CLIENT = OpenAI(...)
+
+import requests
+import json
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
 PERSIST_PATH = os.path.join(os.getcwd(), "chroma_store")
 
+# Initialize Embedding Model
 model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
+# Initialize ChromaDB
 client = chromadb.PersistentClient(path=PERSIST_PATH)
 
 founder_collection = client.get_or_create_collection(
@@ -30,7 +35,6 @@ investor_collection = client.get_or_create_collection(
     metadata={"hnsw:space": "cosine"}
 )
 
-
 # ---------- Helpers ----------
 def clean_metadata(d):
     return {k: v for k, v in d.items() if v is not None and v == v}
@@ -40,8 +44,8 @@ def founder_row_to_text(row):
     parts = []
     if pd.notna(row.get("company")):
         parts.append(f"Company: {row['company']}.")
-    if pd.notna(row.get("founder_name")):
-        parts.append(f"Founder: {row['founder_name']}.")
+    if pd.notna(row.get("name")):
+        parts.append(f"Founder: {row['name']}.")
     if pd.notna(row.get("funding_round")):
         parts.append(f"Funding round: {row['funding_round']}.")
     return " ".join(parts)
@@ -68,45 +72,49 @@ def ingest_data():
         return "Already ingested"
 
     print("Starting Ingestion...")
-    founders_df = pd.read_csv("founders_cleaned.csv")
-    investors_df = pd.read_csv("investors_cleaned.csv")
+    try:
+        founders_df = pd.read_csv("founders_cleaned.csv")
+        investors_df = pd.read_csv("investors_cleaned.csv")
 
-    founder_docs, founder_meta, founder_ids = [], [], []
-    for _, row in founders_df.iterrows():
-        text = founder_row_to_text(row)
-        if not text.strip():
-            continue
-        founder_docs.append(text)
-        founder_meta.append(clean_metadata({"role": "founder"}))
-        founder_ids.append(str(uuid.uuid4()))
+        founder_docs, founder_meta, founder_ids = [], [], []
+        for _, row in founders_df.iterrows():
+            text = founder_row_to_text(row)
+            if not text.strip():
+                continue
+            founder_docs.append(text)
+            founder_meta.append(clean_metadata({"role": "founder", "id": str(row["id"])}))
+            founder_ids.append(str(uuid.uuid4()))
 
-    investor_docs, investor_meta, investor_ids = [], [], []
-    for _, row in investors_df.iterrows():
-        text = investor_row_to_text(row)
-        if not text.strip():
-            continue
-        investor_docs.append(text)
-        investor_meta.append(clean_metadata({"role": "investor"}))
-        investor_ids.append(str(uuid.uuid4()))
+        investor_docs, investor_meta, investor_ids = [], [], []
+        for _, row in investors_df.iterrows():
+            text = investor_row_to_text(row)
+            if not text.strip():
+                continue
+            investor_docs.append(text)
+            investor_meta.append(clean_metadata({"role": "investor", "id": str(row["id"])}))
+            investor_ids.append(str(uuid.uuid4()))
 
-    founder_emb = model.encode(founder_docs, normalize_embeddings=True)
-    investor_emb = model.encode(investor_docs, normalize_embeddings=True)
+        founder_emb = model.encode(founder_docs, normalize_embeddings=True)
+        investor_emb = model.encode(investor_docs, normalize_embeddings=True)
 
-    founder_collection.add(
-        documents=founder_docs,
-        embeddings=founder_emb.tolist(),
-        metadatas=founder_meta,
-        ids=founder_ids
-    )
+        founder_collection.add(
+            documents=founder_docs,
+            embeddings=founder_emb.tolist(),
+            metadatas=founder_meta,
+            ids=founder_ids
+        )
 
-    investor_collection.add(
-        documents=investor_docs,
-        embeddings=investor_emb.tolist(),
-        metadatas=investor_meta,
-        ids=investor_ids
-    )
+        investor_collection.add(
+            documents=investor_docs,
+            embeddings=investor_emb.tolist(),
+            metadatas=investor_meta,
+            ids=investor_ids
+        )
 
-    return "Ingestion complete"
+        return "Ingestion complete"
+    except Exception as e:
+        print(f"Ingestion failed: {e}")
+        return f"Ingestion failed: {e}"
 
 
 # ---------- Query ----------
@@ -124,7 +132,6 @@ def query_investors(query: str, k: int = 5):
         query_embeddings=q_emb.tolist(),
         n_results=k
     )
-
 
 def chat_with_rag(query: str):
     # 1. Retrieve Context
@@ -155,18 +162,32 @@ def chat_with_rag(query: str):
         "- Keep answers concise, professional, and structured."
     )
     
-    user_prompt = f"Context:\n{context_str}\n\nQuestion: {query}"
+    full_prompt = f"{system_prompt}\n\nContext:\n{context_str}\n\nQuestion: {query}"
 
-    # 3. Call LLM (Llama 3.2 via Ollama)
+    # 3. Call GEMINI 2.0 Flash
+    payload = {
+        "contents": [{
+            "parts": [{"text": full_prompt}]
+        }]
+    }
+
     try:
-        response = LLM_CLIENT.chat.completions.create(
-            model="llama3.2",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.7
+        response = requests.post(
+            GEMINI_URL, 
+            json=payload, 
+            headers={'Content-Type': 'application/json'}
         )
-        return response.choices[0].message.content
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Extract text from Gemini response structure
+            # candidates[0] -> content -> parts[0] -> text
+            if "candidates" in data and len(data["candidates"]) > 0:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            else:
+                return "AI did not return a candidate response."
+        else:
+            return f"Error contacting AI Assistant: Status {response.status_code} - {response.text}"
+            
     except Exception as e:
         return f"Error contacting AI Assistant: {str(e)}"

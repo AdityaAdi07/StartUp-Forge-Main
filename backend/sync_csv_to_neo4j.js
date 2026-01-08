@@ -10,8 +10,9 @@ const driver = neo4j.driver(
 );
 
 // Paths to CSVs (using absolute paths based on user environment)
-const FOUNDERS_CSV = 'd:\\secure_chat\\rag\\founders_cleaned.csv';
-const INVESTORS_CSV = 'd:\\secure_chat\\rag\\investors_cleaned.csv';
+// Paths to CSVs (using relative paths)
+const FOUNDERS_CSV = path.join(__dirname, '../rag_backend/founders_cleaned.csv');
+const INVESTORS_CSV = path.join(__dirname, '../rag_backend/investors_cleaned.csv');
 
 // Helper: Custom CSV Line Parser to handle quoted fields containing commas
 function parseCSVLine(line) {
@@ -89,7 +90,8 @@ const syncData = async () => {
                 await session.run(`
                     MERGE (i:Investor {id: $id})
                     SET i.name = $name
-                `, { id, name });
+                    SET i.domain = $domain
+                `, { id, name, domain: cols[5] });
 
                 const investments = parsePythonLiteral(investmentsStr);
                 if (Array.isArray(investments)) {
@@ -98,10 +100,15 @@ const syncData = async () => {
                         if (companyName) {
                             // Link Investor -> Company
                             // We MERGE company here just in case it doesn't exist yet
+                            // FIX: Propagate Investor's Primary Domain to the Company to enable Sector Overlap checks
                             await session.run(`
                                 MATCH (i:Investor {id: $id})
                                 MERGE (c:Company {name: $companyName})
                                 MERGE (i)-[:INVESTED_IN]->(c)
+                                WITH i, c
+                                WHERE i.domain IS NOT NULL AND i.domain <> ""
+                                MERGE (d:Domain {name: i.domain})
+                                MERGE (c)-[:OPERATES_IN]->(d)
                             `, { id, companyName });
                         }
                     }
@@ -136,9 +143,25 @@ const syncData = async () => {
                 // Create/Merge Company & Domain
                 await session.run(`
                     MERGE (c:Company {name: $companyName})
+                    SET c.id = $id
+                    SET c.founder = $founderName, 
+                        c.valuation = $valuation,
+                        c.round = $round,
+                        c.year = $year
                     MERGE (d:Domain {name: $domainName})
-                    MERGE (c)-[:OPERATES_IN]->(d)
-                `, { companyName, domainName });
+                    // FIX: Do NOT create domain from URL (cols[3])
+                    // Only link if it's NOT a URL (simple heuristic)
+                    // MERGE (c)-[:OPERATES_IN]->(d)
+                `, {
+                    id: cols[0],
+                    companyName,
+                    domainName,
+                    founderName: cols[1],
+                    valuation: parseFloat(cols[5]),
+                    // Try to extract round/year from JSON, else default
+                    round: parsePythonLiteral(cols[4])?.round || 'Seed',
+                    year: parsePythonLiteral(cols[4])?.year || 2022
+                });
 
                 // Link Subsidary/Umbrella (Parent -> Child)
                 const parents = parsePythonLiteral(umbrellaStr);

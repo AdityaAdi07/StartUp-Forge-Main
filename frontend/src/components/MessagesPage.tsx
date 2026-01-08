@@ -98,9 +98,9 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
       if (data && data.connections) {
         const mapped = data.connections.map((c: any) => ({
           userId: String(c.other_user_id),
-          userName: `User ${c.other_user_id} (${c.other_user_role})`,
-          userAvatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-          lastMessage: 'Tap to chat',
+          userName: c.other_user_name || `User ${c.other_user_id}`,
+          userAvatar: c.other_user_avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+          lastMessage: c.other_user_headline || 'Tap to chat',
           timestamp: '',
           unread: false
         }));

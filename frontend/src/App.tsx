@@ -206,10 +206,11 @@ function App() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [extraSearchResults, setExtraSearchResults] = useState<User[]>([]);
+  const [fetchedUser, setFetchedUser] = useState<User | null>(null);
 
   // RAG Search State
   const [isSearching, setIsSearching] = useState(false);
-  const [ragResults, setRagResults] = useState<{ founders: string[], investors: string[] }>({ founders: [], investors: [] });
+  const [ragResults, setRagResults] = useState<{ founders: { text: string; id: string }[], investors: { text: string; id: string }[] }>({ founders: [], investors: [] });
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
 
   // Domain State
@@ -636,9 +637,33 @@ function App() {
     ]
     : [];
 
+  // --- Dynamic Profile Fetching ---
+  useEffect(() => {
+    if (viewingUserId === 'current-user') {
+      setFetchedUser(null);
+      return;
+    }
+
+    const localUser = users.find(u => u.id === viewingUserId) || extraSearchResults.find(u => u.id === viewingUserId);
+    if (!localUser) {
+      // Fetch from API
+      console.log(`Fetching profile for: ${viewingUserId}`);
+      fetch(`http://localhost:3000/api/users/${viewingUserId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setFetchedUser(data.user);
+          }
+        })
+        .catch(err => console.error("Error fetching user profile:", err));
+    } else {
+      setFetchedUser(null);
+    }
+  }, [viewingUserId, users, extraSearchResults]);
+
   const viewingUser = viewingUserId === 'current-user'
     ? currentUser
-    : (users.find(u => u.id === viewingUserId) || extraSearchResults.find(u => u.id === viewingUserId) || currentUser);
+    : (users.find(u => u.id === viewingUserId) || extraSearchResults.find(u => u.id === viewingUserId) || fetchedUser || currentUser);
 
   const isOwnProfile = viewingUserId === 'current-user';
 
@@ -734,11 +759,11 @@ function App() {
       {currentPage === 'home' && (
         <HomePage
           currentUser={currentUser}
-          onNavigate={(page) => {
+          onNavigate={(page, userId) => {
             if (page === 'network') navigateTo('network');
             else if (page === 'notifications') navigateTo('notifications');
             else if (page === 'messages') navigateTo('messages');
-            else if (page === 'profile') navigateTo('profile', 'current-user');
+            else if (page === 'profile') navigateTo('profile', userId || 'current-user');
             else if (page === 'conflict-report') navigateTo('conflict-report');
             else if (page === 'jobs') navigateTo('jobs');
             else if (page === 'home') navigateTo('home');
@@ -780,7 +805,7 @@ function App() {
           isSearching={isSearching}
           onBack={goBack}
           currentInvestorName={currentUser.name}
-          targetCompanyName={viewingUser.experience || "Kapital"}
+          targetCompanyName={viewingUser.company || viewingUser.name}
         />
       )}
 

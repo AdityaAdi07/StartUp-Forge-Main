@@ -30,18 +30,38 @@ def load_data():
 @app.post("/search/founders")
 def search_founders(req: QueryRequest):
     res = query_founders(req.query, req.top_k)
+    results = []
+    if res["documents"] and res["metadatas"]:
+        docs = res["documents"][0]
+        metas = res["metadatas"][0]
+        for i in range(len(docs)):
+            results.append({
+                "text": docs[i],
+                "id": metas[i].get("id")
+            })
+            
     return {
         "query": req.query,
-        "results": res["documents"][0]
+        "results": results
     }
 
 
 @app.post("/search/investors")
 def search_investors(req: QueryRequest):
     res = query_investors(req.query, req.top_k)
+    results = []
+    if res["documents"] and res["metadatas"]:
+        docs = res["documents"][0]
+        metas = res["metadatas"][0]
+        for i in range(len(docs)):
+            results.append({
+                "text": docs[i],
+                "id": metas[i].get("id")
+            })
+
     return {
         "query": req.query,
-        "results": res["documents"][0]
+        "results": results
     }
 
 

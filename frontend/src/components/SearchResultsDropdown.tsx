@@ -2,14 +2,15 @@ import { User, Wallet } from 'lucide-react';
 
 interface SearchResultsDropdownProps {
     results: {
-        founders: string[];
-        investors: string[];
+        founders: { text: string; id: string }[];
+        investors: { text: string; id: string }[];
     };
     isVisible: boolean;
     isLoading: boolean;
+    onSelectResult: (id: string) => void;
 }
 
-export function SearchResultsDropdown({ results, isVisible, isLoading }: SearchResultsDropdownProps) {
+export function SearchResultsDropdown({ results, isVisible, isLoading, onSelectResult }: SearchResultsDropdownProps) {
     if (!isVisible) return null;
 
     // content parser helper - customized for compact display
@@ -55,9 +56,9 @@ export function SearchResultsDropdown({ results, isVisible, isLoading }: SearchR
                         </div>
                         <div className="space-y-1">
                             {results.founders.map((item, idx) => {
-                                const data = parseContent(item);
+                                const data = parseContent(item.text);
                                 return (
-                                    <div key={idx} className="p-3 bg-slate-800/30 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer group border border-slate-700/50 hover:border-slate-600">
+                                    <div key={idx} onClick={() => onSelectResult(item.id)} className="p-3 bg-slate-800/30 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer group border border-slate-700/50 hover:border-slate-600">
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h4 className="text-sm font-bold text-white group-hover:text-white">
@@ -85,9 +86,9 @@ export function SearchResultsDropdown({ results, isVisible, isLoading }: SearchR
                         </div>
                         <div className="space-y-1">
                             {results.investors.map((item, idx) => {
-                                const data = parseContent(item);
+                                const data = parseContent(item.text);
                                 return (
-                                    <div key={idx} className="p-3 bg-slate-800/30 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer group border border-slate-700/50 hover:border-slate-600">
+                                    <div key={idx} onClick={() => onSelectResult(item.id)} className="p-3 bg-slate-800/30 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer group border border-slate-700/50 hover:border-slate-600">
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h4 className="text-sm font-bold text-white group-hover:text-white">

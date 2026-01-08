@@ -4,7 +4,8 @@ const pool = new Pool({
   host: 'localhost',
   port: 5432,
   user: 'postgres',
-  database: 'connection_db'
+  password: 'StrongPassword123',
+  database: 'startupforge_db'
 });
 
 module.exports = pool;
