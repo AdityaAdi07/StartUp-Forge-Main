@@ -12,15 +12,15 @@ const pool = new Pool({
 async function inspect() {
     try {
         console.log("🔌 Connecting to Postgres...");
-        
+
         // 1. Get Columns
         const cols = await pool.query(`
-            SELECT column_name, data_type, udt_name
+            SELECT column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'connection_requests'
+            WHERE table_name = 'connections'
         `);
-        console.log("\n📄 Columns for 'connection_requests':");
-        cols.rows.forEach(c => console.log(`   - ${c.column_name}: ${c.data_type} (udt: ${c.udt_name})`));
+        console.log("\nFounders Columns:");
+        cols.rows.forEach(c => console.log(`   - ${c.column_name}: ${c.data_type}`));
 
         // 2. Get Enums if any
         const enums = await pool.query(`

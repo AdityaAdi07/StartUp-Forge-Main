@@ -2015,3 +2015,4 @@ html {
 }
 
 
+.stroke-minimal { stroke: currentColor; stroke-width: 1.5; }

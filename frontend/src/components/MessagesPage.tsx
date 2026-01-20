@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../App';
 import {
   Search,
@@ -16,7 +16,10 @@ import {
   Lock,
   Trash2,
   Check,
-  X
+  X,
+  Briefcase,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 
 type MessagesPageProps = {
@@ -49,16 +52,21 @@ interface Conversation {
 }
 
 // --- Sub-components for Header (Copied for consistency as per user request) ---
-const ActionItem = ({ icon, label, badge = false, onClick }: { icon: any, label: string, badge?: boolean, onClick: () => void }) => (
+const ActionItem = ({ icon, label, onClick, badge, active }: { icon: any, label: string, onClick: () => void, badge?: boolean, active?: boolean }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center text-slate-600 hover:text-white hover:bg-slate-900 p-2 rounded-xl transition-all group min-w-20 relative"
+    className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl transition-all duration-300 group min-w-20 relative ${active ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}`}
   >
-    <div className="relative mb-0.5 transform group-hover:scale-105 transition-transform duration-200">
-      {icon}
-      {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+    <div className={`relative transform transition-transform duration-300 ${active ? 'scale-105' : 'group-hover:scale-110'}`}>
+      <div className={`p-1.5 rounded-xl transition-colors duration-300 ${active ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 group-hover:text-slate-700 bg-transparent'}`}>
+        {React.cloneElement(icon, {
+          strokeWidth: active ? 2.5 : 2,
+          className: "w-6 h-6"
+        })}
+      </div>
+      {badge && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>}
     </div>
-    <span className="text-xs font-medium tracking-wide group-hover:text-white">{label}</span>
+    <span className={`text-[11px] font-bold tracking-tight transition-colors duration-300 ${active ? 'text-indigo-700' : 'text-slate-400 group-hover:text-slate-600'}`}>{label}</span>
   </button>
 );
 
@@ -72,6 +80,13 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
   const [clearRequestPending, setClearRequestPending] = useState(false);
 
   const [currentRoomKey, setCurrentRoomKey] = useState<string | null>(null);
+  const [currentConnectionId, setCurrentConnectionId] = useState<number | null>(null);
+
+  // Investment Flow State
+  const [showInvModal, setShowInvModal] = useState(false);
+  const [invStatus, setInvStatus] = useState<'NONE' | 'PENDING' | 'MATCHED' | 'MISMATCH'>('NONE');
+  const [invFormData, setInvFormData] = useState({ round: 'Seed', year: new Date().getFullYear().toString(), amount: '' });
+  const [submissionFeedback, setSubmissionFeedback] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -149,9 +164,10 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
           console.error("Failed to init chat", res.status, errText);
           throw new Error("Failed to init chat");
         }
-        const { roomKey } = await res.json();
-        console.log("Got roomKey", roomKey);
+        const { roomKey, connectionId } = await res.json();
+        console.log("Got roomKey", roomKey, "connectionId", connectionId);
         setCurrentRoomKey(roomKey);
+        setCurrentConnectionId(connectionId);
 
         // Subscribe to Gun
         chatNode = gun.get('chats').get(roomKey);
@@ -171,6 +187,84 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
       if (chatNode) chatNode.off();
     };
   }, [selectedConversation, gun, currentUser.id]);
+
+  // 3. Poll Investment Status (when chat is open)
+  useEffect(() => {
+    if (!currentConnectionId) return;
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`/api/investments/status/${currentConnectionId}`, {
+          headers: { 'x-user-id': currentUser.id }
+        });
+        const data = await res.json();
+
+        if (data.status === 'PENDING') {
+          setInvStatus('PENDING');
+        } else if (data.status === 'MATCHED') {
+          setInvStatus('MATCHED');
+          // Clear after 5 seconds
+          setTimeout(() => setInvStatus('NONE'), 5000);
+        } else {
+          setInvStatus('NONE');
+        }
+      } catch (e) { console.error(e); }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000); // Poll every 3s
+    return () => clearInterval(interval);
+  }, [currentConnectionId, currentUser.id]);
+
+  const handleReportInvestment = async () => {
+    if (!currentConnectionId) return;
+    try {
+      await fetch('/api/investments/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
+        },
+        body: JSON.stringify({ connectionId: currentConnectionId })
+      });
+      setInvStatus('PENDING'); // Optimistic update
+    } catch (e) { console.error(e); }
+  };
+
+  const submitInvestment = async () => {
+    if (!currentConnectionId) return;
+    try {
+      const res = await fetch('/api/investments/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
+        },
+        body: JSON.stringify({
+          connectionId: currentConnectionId,
+          role: currentUser.role, // 'founder' | 'investor'
+          data: invFormData
+        })
+      });
+      const data = await res.json();
+
+      if (data.status === 'MATCHED') {
+        setSubmissionFeedback("Investment Confirmed!");
+        setTimeout(() => {
+          setShowInvModal(false);
+          setSubmissionFeedback(null);
+        }, 1500);
+      } else if (data.mismatch) {
+        setSubmissionFeedback("Mismatch! details do not match partner's submission.");
+      } else {
+        setSubmissionFeedback("Submitted! Waiting for partner to confirm.");
+        setTimeout(() => {
+          setShowInvModal(false);
+          setSubmissionFeedback(null);
+        }, 1500);
+      }
+    } catch (e) { console.error(e); }
+  };
 
   const processIncomingMessage = async (node: any, id: string) => {
     // 1. Handle Clear Requests
@@ -398,12 +492,12 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
           </div>
 
           {/* Icons */}
-          <div className="flex items-center gap-8 flex-shrink-0">
-            <ActionItem icon={<Home className="w-7 h-7" />} label="Home" onClick={() => onNavigate('home')} />
-            <ActionItem icon={<Users className="w-7 h-7" />} label="Network" onClick={() => onNavigate('network')} />
-            <ActionItem icon={<Bell className="w-7 h-7" />} label="Alerts" badge={false} onClick={() => onNavigate('notifications')} />
-            <ActionItem icon={<MessageSquare className="w-7 h-7" />} label="Inbox" onClick={() => onNavigate('messages')} />
-            <ActionItem icon={<BrainCircuit className="w-7 h-7" />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ActionItem icon={<Home />} label="Home" onClick={() => onNavigate('home')} />
+            <ActionItem icon={<Users />} label="Network" onClick={() => onNavigate('network')} />
+            <ActionItem icon={<Bell />} label="Alerts" badge={false} onClick={() => onNavigate('notifications')} />
+            <ActionItem icon={<MessageSquare />} label="Inbox" onClick={() => onNavigate('messages')} active={true} />
+            <ActionItem icon={<BrainCircuit />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
           </div>
         </div>
       </div>
@@ -462,8 +556,10 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
           {selectedConversation && selectedUser ? (
             <div className="flex-1 flex flex-col bg-white">
               {/* Header */}
-              <div className="px-6 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex items-center justify-between z-10 sticky top-0">
-                <div className="flex items-center gap-3">
+              <div className="grid grid-cols-3 items-center z-10 sticky top-0 px-6 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-100">
+
+                {/* Left: User Info */}
+                <div className="justify-self-start flex items-center gap-3">
                   <div className="relative group cursor-pointer">
                     <img src={selectedUser.userAvatar} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-sm" />
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
@@ -477,22 +573,57 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
                   </div>
                 </div>
 
-                {/* Security Badge & Clear Action */}
-                <div className="flex flex-col items-end gap-1">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-full border border-slate-100 group cursor-help hover:border-slate-200 transition-colors">
-                    <Shield className="w-3 h-3 text-emerald-500 fill-emerald-50" />
-                    <span className="text-[10px] font-bold text-slate-600 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">Blockchain Verified</span>
+                {/* Center: Report Button */}
+                <div className="justify-self-center">
+                  <button
+                    onClick={handleReportInvestment}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-full shadow-lg shadow-indigo-200 transition-all font-bold text-xs uppercase tracking-wider animate-pulse ring-4 ring-indigo-50"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    Report Investment
+                  </button>
+                </div>
+
+                {/* Right: Actions */}
+                <div className="justify-self-end flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 group cursor-help hover:border-slate-200 transition-colors">
+                    <Shield className="w-4 h-4 text-emerald-500 fill-emerald-50" />
+                    <span className="text-xs font-bold text-slate-600 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">Decentralized Chat</span>
                   </div>
                   <button
                     onClick={requestClearChat}
-                    className="text-[10px] flex items-center gap-1 text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                    className="text-xs font-bold flex items-center gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-full transition-colors"
                     title="Request to Clear Chat"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-4 h-4" />
                     Clear Chat
                   </button>
                 </div>
               </div>
+
+              {/* NEW: Persistent Notification Bar */}
+              {invStatus === 'PENDING' && (
+                <div className="bg-blue-50/80 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between animate-in slide-in-from-top-2 z-0">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 bg-blue-100 rounded-full">
+                      <AlertTriangle className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="font-medium text-sm text-blue-800">Investment reported. Confirm details to record this deal.</span>
+                  </div>
+                  <button
+                    onClick={() => setShowInvModal(true)}
+                    className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    Confirm Details
+                  </button>
+                </div>
+              )}
+              {invStatus === 'MATCHED' && (
+                <div className="bg-emerald-50/80 backdrop-blur-sm border-b border-emerald-100 px-4 py-3 flex items-center justify-center animate-in slide-in-from-top-2 z-0">
+                  <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600" />
+                  <span className="font-bold text-emerald-800 text-sm">Success! Investment recorded and verified on blockchain.</span>
+                </div>
+              )}
 
               {/* Clear Request Banner */}
               {clearRequestPending && (
@@ -658,7 +789,119 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </div >
+      {/* Investment Confirmation Modal */}
+      {
+        showInvModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 relative animate-in zoom-in-95 ring-1 ring-white/50">
+              <button onClick={() => setShowInvModal(false)} className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all">
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mb-6">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+                  <Briefcase className="w-6 h-6 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">
+                  Confirm Investment
+                </h2>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Both parties must submit identical details (Round, Year, Amount) to verify this transaction on the ledger.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {/* Auto-filled names */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Startup</label>
+                    <p className="font-bold text-slate-900 truncate text-sm">
+                      {currentUser.role === 'founder' ? currentUser.company || currentUser.name : selectedUser?.userName}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Investor</label>
+                    <p className="font-bold text-slate-900 truncate text-sm">
+                      {currentUser.role === 'investor' ? currentUser.company || currentUser.name : selectedUser?.userName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Inputs */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Investment Round</label>
+                    <div className="relative">
+                      <select
+                        value={invFormData.round}
+                        onChange={e => setInvFormData({ ...invFormData, round: e.target.value })}
+                        className="w-full appearance-none bg-white rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all text-slate-700 hover:border-slate-300"
+                      >
+                        <option>Pre-seed</option>
+                        <option>Seed</option>
+                        <option>Series A</option>
+                        <option>Series B</option>
+                        <option>Series C+</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">Year</label>
+                      <input
+                        type="number"
+                        value={invFormData.year}
+                        onChange={e => setInvFormData({ ...invFormData, year: e.target.value })}
+                        className="w-full bg-white rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all placeholder-slate-400 text-slate-700 hover:border-slate-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">Amount (USD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                        <input
+                          type="text"
+                          value={invFormData.amount}
+                          onChange={e => setInvFormData({ ...invFormData, amount: e.target.value })}
+                          placeholder="e.g. 1000000"
+                          className="w-full bg-white rounded-xl border border-slate-200 pl-7 pr-4 py-2.5 text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all placeholder-slate-400 text-slate-700 hover:border-slate-300"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {submissionFeedback && (
+                <div className={`mt-5 p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${submissionFeedback.includes('Mismatch') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'}`}>
+                  {submissionFeedback.includes('Mismatch') ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                  {submissionFeedback}
+                </div>
+              )}
+
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowInvModal(false)}
+                  className="px-5 py-2.5 text-slate-600 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitInvestment}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 hover:shadow-xl hover:shadow-slate-200 transition-all transform active:scale-95"
+                >
+                  Confirm & Record
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }

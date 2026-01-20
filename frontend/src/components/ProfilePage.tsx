@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, Post } from '../App';
 import { Camera, Edit2, MapPin, Link as LinkIcon, Briefcase, ShieldAlert, CheckCircle2, Award, BookOpen, Clock, Home, Users, Bell, MessageSquare, BrainCircuit, Sparkles, Search } from 'lucide-react';
 import { EditProfileModal } from './EditProfileModal';
@@ -23,15 +23,19 @@ type ProfilePageProps = {
 
 const ActionItem = ({ icon, label, onClick, badge, active }: { icon: any, label: string, onClick: () => void, badge?: boolean, active?: boolean }) => (
   <button
-    type="button"
     onClick={onClick}
-    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all duration-300 group ${active ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-500 hover:text-slate-900'}`}
+    className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl transition-all duration-300 group min-w-20 relative ${active ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}`}
   >
-    <div className="relative transform group-hover:scale-105 transition-transform duration-300">
-      {icon}
-      {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>}
+    <div className={`relative transform transition-transform duration-300 ${active ? 'scale-105' : 'group-hover:scale-110'}`}>
+      <div className={`p-1.5 rounded-xl transition-colors duration-300 ${active ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 group-hover:text-slate-700 bg-transparent'}`}>
+        {React.cloneElement(icon, {
+          strokeWidth: active ? 2.5 : 2,
+          className: "w-6 h-6"
+        })}
+      </div>
+      {badge && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>}
     </div>
-    <span className={`text-[10px] font-bold tracking-tight ${active ? 'text-indigo-700' : 'text-slate-500 group-hover:text-slate-900'}`}>{label}</span>
+    <span className={`text-[11px] font-bold tracking-tight transition-colors duration-300 ${active ? 'text-indigo-700' : 'text-slate-400 group-hover:text-slate-600'}`}>{label}</span>
   </button>
 );
 
@@ -141,12 +145,12 @@ export function ProfilePage({ user, currentUser, isOwnProfile, isFollowing, onUp
           </div>
 
           {/* Icons */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <ActionItem icon={<Home className="w-6 h-6 stroke-2" />} label="Home" onClick={() => onNavigate('home')} />
-            <ActionItem icon={<Users className="w-6 h-6 stroke-2" />} label="Network" onClick={() => onNavigate('network')} />
-            <ActionItem icon={<Bell className="w-6 h-6 stroke-2" />} label="Alerts" badge={true} onClick={() => onNavigate('notifications')} />
-            <ActionItem icon={<MessageSquare className="w-6 h-6 stroke-2" />} label="Inbox" onClick={() => onNavigate('messages')} />
-            <ActionItem icon={<BrainCircuit className="w-6 h-6 stroke-2" />} label="Deep Analysis" active={true} onClick={() => onNavigate('conflict-report')} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ActionItem icon={<Home />} label="Home" onClick={() => onNavigate('home')} />
+            <ActionItem icon={<Users />} label="Network" onClick={() => onNavigate('network')} />
+            <ActionItem icon={<Bell />} label="Alerts" badge={true} onClick={() => onNavigate('notifications')} />
+            <ActionItem icon={<MessageSquare />} label="Inbox" onClick={() => onNavigate('messages')} />
+            <ActionItem icon={<BrainCircuit />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
           </div>
         </div>
       </div>

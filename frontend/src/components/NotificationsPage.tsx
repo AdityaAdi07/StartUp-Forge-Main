@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ThumbsUp,
   MessageCircle,
@@ -13,11 +13,7 @@ import {
   PieChart,
   Building2,
   DollarSign,
-  Home,
-  Clock,
-  History,
-  Check,
-  X
+  Home
 } from 'lucide-react';
 
 type NotificationsPageProps = {
@@ -29,16 +25,21 @@ type NotificationsPageProps = {
 };
 
 // --- Sub-components for Header (Copied for consistency as per user request) ---
-const ActionItem = ({ icon, label, badge = false, onClick }: { icon: any, label: string, badge?: boolean, onClick: () => void }) => (
+const ActionItem = ({ icon, label, onClick, badge, active }: { icon: any, label: string, onClick: () => void, badge?: boolean, active?: boolean }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center text-slate-600 hover:text-white hover:bg-slate-900 p-2 rounded-xl transition-all group min-w-20 relative"
+    className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl transition-all duration-300 group min-w-20 relative ${active ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}`}
   >
-    <div className="relative mb-0.5 transform group-hover:scale-105 transition-transform duration-200">
-      {icon}
-      {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+    <div className={`relative transform transition-transform duration-300 ${active ? 'scale-105' : 'group-hover:scale-110'}`}>
+      <div className={`p-1.5 rounded-xl transition-colors duration-300 ${active ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 group-hover:text-slate-700 bg-transparent'}`}>
+        {React.cloneElement(icon, {
+          strokeWidth: active ? 2.5 : 2,
+          className: "w-6 h-6"
+        })}
+      </div>
+      {badge && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>}
     </div>
-    <span className="text-xs font-medium tracking-wide group-hover:text-white">{label}</span>
+    <span className={`text-[11px] font-bold tracking-tight transition-colors duration-300 ${active ? 'text-indigo-700' : 'text-slate-400 group-hover:text-slate-600'}`}>{label}</span>
   </button>
 );
 
@@ -89,6 +90,8 @@ export function NotificationsPage({ currentUser, onViewJob, onNavigateToChat, on
     }
   ]);
 
+  const [companyUpdates, setCompanyUpdates] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -102,7 +105,7 @@ export function NotificationsPage({ currentUser, onViewJob, onNavigateToChat, on
           id: `conn-${n.id}`,
           type: 'connection',
           avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
-          message: `User ${n.receiver_id} accepted your connection request`,
+          message: `${n.receiver_name} accepted your connection request`,
           timestamp: new Date(n.responded_at).toLocaleDateString(),
           unread: true,
           metadata: { userId: String(n.receiver_id) }
@@ -110,9 +113,25 @@ export function NotificationsPage({ currentUser, onViewJob, onNavigateToChat, on
 
         setNotifications(prev => [...realNotifs, ...prev]);
 
+        // Fetch Company Updates
+        const resUpdates = await fetch('/api/investments/updates', {
+          headers: { 'x-user-id': currentUser.id }
+        });
+        const updateData = await resUpdates.json();
+        if (Array.isArray(updateData)) {
+          setCompanyUpdates(updateData);
+        }
+
       } catch (e) { console.error(e); }
     };
+
+    // Initial fetch
     fetchNotifications();
+
+    // Poll every 3 seconds for near-instant updates
+    const intervalId = setInterval(fetchNotifications, 3000);
+
+    return () => clearInterval(intervalId);
   }, [currentUser]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -182,194 +201,181 @@ export function NotificationsPage({ currentUser, onViewJob, onNavigateToChat, on
           </div>
 
           {/* Icons */}
-          <div className="flex items-center gap-8 flex-shrink-0">
-            <ActionItem icon={<Home className="w-7 h-7" />} label="Home" onClick={() => onNavigate('home')} />
-            <ActionItem icon={<Users className="w-7 h-7" />} label="Network" onClick={() => onNavigate('network')} />
-            <ActionItem icon={<Bell className="w-7 h-7" />} label="Alerts" badge={false} onClick={() => onNavigate('notifications')} />
-            <ActionItem icon={<MessageSquare className="w-7 h-7" />} label="Inbox" onClick={() => onNavigate('messages')} />
-            <ActionItem icon={<BrainCircuit className="w-7 h-7" />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ActionItem icon={<Home />} label="Home" onClick={() => onNavigate('home')} />
+            <ActionItem icon={<Users />} label="Network" onClick={() => onNavigate('network')} />
+            <ActionItem icon={<Bell />} label="Alerts" badge={false} onClick={() => onNavigate('notifications')} active={true} />
+            <ActionItem icon={<MessageSquare />} label="Inbox" onClick={() => onNavigate('messages')} />
+            <ActionItem icon={<BrainCircuit />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
           </div>
         </div>
       </div>
 
       {/* --- Main Content --- */}
-      <div className="flex-1 overflow-auto bg-slate-50/50">
-        <div className="max-w-[1600px] mx-auto p-4 flex flex-row gap-4 h-full">
+      <div className="flex-1 overflow-auto bg-slate-50">
+        <div className="max-w-[1600px] mx-auto p-6 flex flex-row gap-6">
 
           {/* LEFT: Main Notification Details (notifications list) */}
-          <div className="flex-1 flex flex-col gap-4 min-w-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 flex flex-col min-h-[500px] overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-white sticky top-0 z-10 border-t-4 border-t-indigo-500">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-800 tracking-tight">Activity Feed</h2>
-                  <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-xs font-bold border border-indigo-100">{notifications.filter(n => n.unread).length} New</span>
-                </div>
-                <button className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 uppercase tracking-wider transition-colors">Mark all read</button>
+          <div className="flex-1 flex flex-col gap-6 min-w-0">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[500px]">
+              <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Notifications</h2>
+                <button className="text-sm font-semibold text-slate-500 hover:text-slate-900">Mark all as read</button>
               </div>
 
-              <div className="space-y-0.5 flex-1 overflow-y-auto custom-scrollbar p-2 bg-slate-50/30">
-                {notifications.map(notification => (
-                  <div
-                    key={notification.id}
-                    onClick={() => {
-                      if (notification.type === 'connection' && notification.metadata?.userId) {
-                        onNavigateToChat(notification.metadata.userId);
-                      } else if (notification.isJob) {
-                        onViewJob(notification.id);
-                      }
-                    }}
-                    className={`group relative p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-4 duration-200 hover:shadow-sm ${notification.unread
-                      ? 'bg-white border-l-4 border-l-indigo-500 border-y border-r border-slate-100 shadow-sm'
-                      : 'bg-transparent border border-transparent hover:bg-white hover:border-slate-100'
-                      }`}
-                  >
-                    <div className="relative flex-shrink-0 mt-0.5">
-                      <img
-                        src={notification.avatar}
-                        alt="Avatar"
-                        className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-sm"
-                      />
-                      <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow border border-slate-100 scale-90">
-                        {getIcon(notification.type)}
-                      </div>
-                    </div>
+              <div className="space-y-4">
 
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm leading-snug ${notification.unread ? 'font-semibold text-slate-800' : 'font-medium text-slate-600'}`}>
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <p className="text-slate-400 text-[11px] font-medium">{notification.timestamp}</p>
-                      </div>
-                    </div>
-
-                    {notification.unread && (
-                      <div className="flex-shrink-0 self-center">
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-sm ring-2 ring-indigo-100"></div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* --- New Sections: Connection Pending & Recently Viewed --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-              {/* Connection Pending */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/50 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
-                <div className="flex items-center gap-2 relative z-10 border-b border-slate-50 pb-2">
-                  <UserPlus className="w-4 h-4 text-indigo-600" />
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Connections Pending</h3>
-                </div>
-                <div className="space-y-3 relative z-10">
-                  {[1, 2].map(i => (
-                    <div key={i} className="flex items-center justify-between gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                      <div className="flex items-center gap-2">
-                        <img src={`https://randomuser.me/api/portraits/men/${i + 20}.jpg`} className="w-8 h-8 rounded-full border border-slate-200" />
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-slate-800 text-xs truncate">James Carter</h4>
-                          <p className="text-[10px] text-slate-500 truncate">Founder @ SaaSFly</p>
+                {/* Section 1: Connections */}
+                <div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Recent Connections</h3>
+                  <div className="space-y-2">
+                    {notifications.slice(0, 4).map(notification => (
+                      <div
+                        key={notification.id}
+                        onClick={() => {
+                          if (notification.type === 'connection' && notification.metadata?.userId) {
+                            onNavigateToChat(notification.metadata.userId);
+                          } else if (notification.isJob) {
+                            onViewJob(notification.id);
+                          }
+                        }}
+                        className={`group p-4 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-start gap-4 ${notification.unread ? 'bg-indigo-50/50' : ''}`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={notification.avatar}
+                            alt="Avatar"
+                            className="w-12 h-12 rounded-full object-cover border border-slate-100"
+                          />
+                          <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-sm">
+                            {getIcon(notification.type)}
+                          </div>
                         </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-900 font-medium text-[15px]">{notification.message}</p>
+                          <p className="text-slate-500 text-xs mt-1">{notification.timestamp}</p>
+                        </div>
+
+                        {notification.unread && (
+                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full mt-2 self-start ring-4 ring-blue-50"></div>
+                        )}
                       </div>
-                      <div className="flex gap-1">
-                        <button className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-100"><Check className="w-3 h-3" /></button>
-                        <button className="p-1.5 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100"><X className="w-3 h-3" /></button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 2: Investment Activity */}
+                <div className="pt-2 border-t border-slate-100">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1 mt-2">Portfolio Activity</h3>
+                  <div className="space-y-2">
+                    {companyUpdates.slice(0, 4).map((update, i) => (
+                      <div
+                        key={`inv-${i}`}
+                        className="group p-4 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all cursor-pointer flex items-start gap-4 bg-emerald-50/30"
+                      >
+                        <div className="relative">
+                          <img
+                            src={`https://i.pravatar.cc/150?u=${update.founder_id || (i + 10)}`}
+                            alt="Company"
+                            className="w-12 h-12 rounded-full object-cover border border-slate-100"
+                          />
+                          <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-sm">
+                            <TrendingUp className="w-5 h-5 text-emerald-600" />
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-900 font-medium text-[15px]">Investment successful in {update.company}</p>
+                          <p className="text-slate-500 text-xs mt-1">{new Date(update.time || Date.now()).toLocaleDateString()} • {update.round}</p>
+                        </div>
+
+                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-2 self-start ring-4 ring-emerald-50"></div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Recently Viewed */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50/50 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
-                <div className="flex items-center gap-2 relative z-10 border-b border-slate-50 pb-2">
-                  <History className="w-4 h-4 text-purple-600" />
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Recently Viewed</h3>
-                </div>
-                <div className="flex gap-3 relative z-10 overflow-x-auto pb-1 no-scrollbar pt-1">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="flex flex-col items-center gap-1.5 min-w-[60px] cursor-pointer group/item">
-                      <img src={`https://randomuser.me/api/portraits/women/${i + 30}.jpg`} className="w-10 h-10 rounded-full border border-slate-200 group-hover/item:border-purple-300 group-hover/item:ring-2 group-hover/item:ring-purple-50 transition-all" />
-                      <span className="text-[10px] font-medium text-slate-600 truncate w-full text-center group-hover/item:text-purple-600">Sarah M.</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
             </div>
           </div>
 
           {/* RIGHT: Sidebar Widgets */}
-          <div className="w-80 flex-shrink-0 flex flex-col gap-4 min-w-0">
+          <div className="w-96 flex-shrink-0 flex flex-col gap-6 min-w-0">
 
             {/* Widget 1: Investment Only Updates */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50/50 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
-              <div className="flex items-center gap-2 relative z-10 border-b border-slate-50 pb-2">
-                <PieChart className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Investment Updates</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-emerald-50 rounded-lg"><PieChart className="w-5 h-5 text-emerald-600" /></div>
+                <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wide">Investment Updates</h3>
               </div>
-              <div className="space-y-2 relative z-10">
-                <div className="p-3 bg-emerald-50/30 rounded-xl border border-emerald-100/50 flex justify-between items-center">
-                  <span className="font-bold text-slate-700 text-xs">Portfolio Growth</span>
-                  <div className="text-right">
-                    <p className="text-emerald-600 font-extrabold text-lg leading-none">+12.4%</p>
-                  </div>
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <h4 className="font-bold text-slate-800 text-sm">Portfolio Growth</h4>
+                  <p className="text-emerald-600 font-bold text-lg mt-1">+12.4% <span className="text-slate-400 text-xs font-normal text-black">this month</span></p>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-100 transition-colors cursor-pointer flex justify-between items-center shadow-sm">
-                  <span className="font-bold text-slate-700 text-xs">New Matches</span>
-                  <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3 Found</span>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <h4 className="font-bold text-slate-800 text-sm">New Opportunities</h4>
+                  <p className="text-slate-600 text-sm mt-1">3 new matching startups found</p>
                 </div>
               </div>
             </div>
 
             {/* Widget 2: Founder Company Updates */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 left-0 w-20 h-20 bg-blue-50 rounded-full blur-2xl -ml-8 -mt-8 pointer-events-none opacity-50"></div>
-              <div className="flex items-center gap-2 relative z-10 border-b border-slate-50 pb-2">
-                <Building2 className="w-4 h-4 text-blue-600" />
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Company Updates</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-50 rounded-lg"><Building2 className="w-5 h-5 text-blue-600" /></div>
+                <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wide">Company Updates</h3>
               </div>
-              <div className="space-y-2 relative z-10">
-                {[1, 2].map(i => (
-                  <div key={i} className="flex gap-3 items-center p-2 hover:bg-slate-50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-slate-100">
-                    <img src={`https://randomuser.me/api/portraits/lego/${i + 5}.jpg`} className="w-8 h-8 rounded-md bg-slate-100 object-cover shadow-sm" />
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-slate-800 text-xs leading-tight truncate">TechNovation Inc.</h4>
-                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Raised Series A • 2d ago</p>
+              <div className="space-y-3">
+                {companyUpdates.slice(0, 4).length > 0 ? (
+                  companyUpdates.slice(0, 4).map((update, i) => (
+                    <div key={i} className="flex gap-3 items-center p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer">
+                      <img
+                        src={`https://i.pravatar.cc/150?u=${update.founder_id || (i % 5) + 5}`}
+                        className="w-10 h-10 rounded-lg bg-slate-200 object-cover"
+                      />
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-xs">{update.company}</h4>
+                        <p className="text-[10px] text-slate-500">{update.round} • {new Date(update.time).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  [1, 2].map(i => (
+                    <div key={i} className="flex gap-3 items-center p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer">
+                      <img src={`https://randomuser.me/api/portraits/lego/${i + 5}.jpg`} className="w-10 h-10 rounded-lg bg-slate-200" />
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-xs">TechNovation Inc.</h4>
+                        <p className="text-[10px] text-slate-500">Raised Series A • 2d ago</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             {/* Widget 3: Stock Prices */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
-              <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none opacity-50"></div>
-              <div className="flex items-center gap-2 relative z-10 border-b border-slate-50 pb-2">
-                <DollarSign className="w-4 h-4 text-amber-600" />
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Market Watch</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-amber-50 rounded-lg"><DollarSign className="w-5 h-5 text-amber-600" /></div>
+                <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wide">Market Watch</h3>
               </div>
-              <div className="space-y-2 relative z-10">
-                <div className="flex justify-between items-center py-1">
-                  <span className="font-bold text-slate-700 text-xs">NVDA</span>
-                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-bold">+2.4%</span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                  <span className="font-bold text-slate-700 text-sm">NVDA</span>
+                  <span className="text-emerald-600 font-medium text-sm">+2.4%</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="font-bold text-slate-700 text-xs">MSFT</span>
-                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-bold">+0.8%</span>
+                <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                  <span className="font-bold text-slate-700 text-sm">MSFT</span>
+                  <span className="text-emerald-600 font-medium text-sm">+0.8%</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="font-bold text-slate-700 text-xs">AAPL</span>
-                  <span className="bg-rose-50 text-rose-600 border border-rose-100 px-1.5 py-0.5 rounded text-[10px] font-bold">-0.2%</span>
+                <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                  <span className="font-bold text-slate-700 text-sm">AAPL</span>
+                  <span className="text-red-500 font-medium text-sm">-0.2%</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="font-bold text-slate-700 text-xs">GOOGL</span>
-                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-bold">+1.1%</span>
+                <div className="flex justify-between items-center py-2">
+                  <span className="font-bold text-slate-700 text-sm">GOOGL</span>
+                  <span className="text-emerald-600 font-medium text-sm">+1.1%</span>
                 </div>
               </div>
             </div>

@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
     );
 
     if (existing.rowCount > 0) {
-      return res.json({ roomKey: existing.rows[0].room_key });
+      return res.json({ roomKey: existing.rows[0].room_key, connectionId });
     }
 
     // 3. Create room key
@@ -61,7 +61,7 @@ router.post('/', async (req, res) => {
       [connectionId, roomKey]
     );
 
-    res.json({ roomKey });
+    res.json({ roomKey, connectionId });
 
   } catch (err) {
     console.error(err);

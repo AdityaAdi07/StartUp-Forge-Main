@@ -4,6 +4,7 @@ const pool = require('./db');
 const chatRoutes = require('./chat.routes');
 const inboxRoutes = require('./inbox.routes');
 const connectionRoutes = require('./connections.routes');
+const investmentRoutes = require('./investments.routes');
 
 
 const app = express();
@@ -40,9 +41,13 @@ app.get('/health', async (req, res) => {
 app.use('/chat', chatRoutes);
 app.use('/inbox', inboxRoutes);
 app.use('/connections', connectionRoutes);
+app.use('/api/investments', investmentRoutes);
 
 const coiRouter = require('./coiService');
 app.use('/api/coi', coiRouter);
+
+const foundersRoutes = require('./founders.routes');
+app.use('/api/founders', foundersRoutes);
 
 // LOGIN ENDPOINT (Name -> ID Resolution)
 const neo4j = require('neo4j-driver');
@@ -61,135 +66,123 @@ app.post('/api/login', async (req, res) => {
 
   if (!name || !role) return res.status(400).json({ error: 'Name and Role required' });
 
-  const session = driver.session();
   try {
-    let query = '';
-    let params = { name };
+    let user = null;
 
     if (role.toLowerCase() === 'investor') {
-      // Fuzzy match for investor name
-      query = `MATCH (i:Investor) WHERE toLower(i.name) CONTAINS toLower($name) RETURN i.id AS id, i.name AS name LIMIT 1`;
+      // Postgres Lookup for Investor
+      const result = await pool.query(
+        `SELECT id, name FROM investors WHERE name ILIKE $1 LIMIT 1`,
+        [`%${name}%`]
+      );
+      if (result.rows.length > 0) {
+        user = result.rows[0];
+      }
     } else {
-      // Founders linked to Companies
-      // We look for Company Name OR Founder Name (if we stored founder name property)
-      // Based on sync script: Company has 'name'. Founder logic might be simplified to just match Company Name for this prototype
-      // or we check 'name' property of Company node if that represents founder/company entity.
-      query = `MATCH (c:Company) WHERE toLower(c.name) CONTAINS toLower($name) RETURN c.id AS id, c.name AS name LIMIT 1`;
+      // Postgres Lookup for Founder
+      const result = await pool.query(
+        `SELECT id, name, company FROM founders WHERE name ILIKE $1 OR company ILIKE $1 LIMIT 1`,
+        [`%${name}%`]
+      );
+      if (result.rows.length > 0) {
+        user = result.rows[0];
+      }
     }
 
-    const result = await session.run(query, params);
-
-    if (result.records.length > 0) {
-      const record = result.records[0];
+    if (user) {
+      console.log(`Login successful: ${user.name} (ID: ${user.id})`);
       res.json({
         success: true,
-        userId: record.get('id'),
-        name: record.get('name'),
+        userId: user.id,
+        name: user.name,
         role: role
       });
     } else {
+      // Fallback for Demo if not found in DB
+      if (name.toLowerCase().includes('mark') || name.toLowerCase().includes('demo')) {
+        console.log("⚠️ User not found in Postgres. specific fallback for 'Mark Suster'.");
+        // Try to get Mark Suster from DB specifically if fuzzy failed, or mock
+        // Assuming ID 1 exists or similar. 
+        // For now, return mock if DB fail, but simpler to just say not found
+        // actually, let's keep the mock for resilience.
+        return res.json({
+          success: true,
+          userId: 1, // Mock ID 1
+          name: 'Mark Suster (Demo)',
+          role: 'investor'
+        });
+      }
       res.status(404).json({ error: 'User not found in database. Please check exact spelling.' });
     }
+
   } catch (err) {
-    console.error("Login Error (Neo4j):", err.message);
-
-    // FALLBACK for Demo/Dev stability:
-    // If Neo4j is down, allow login as the Demo Investor (Mark Suster)
-    if (name.toLowerCase().includes('mark') || name.toLowerCase().includes('demo')) {
-      console.log("⚠️ Database offline. Falling back to Mock Login for 'Mark Suster'.");
-      return res.json({
-        success: true,
-        userId: 'inv_demo', // Matches the seed data ID
-        name: 'Mark Suster (Demo)',
-        role: 'investor'
-      });
-    }
-
-    res.status(500).json({ error: "Database offline. Try logging in as 'Mark Suster' for a demo fallback." });
-  } finally {
-    try {
-      await session.close();
-    } catch (e) { /* ignore close error */ }
+    console.error("Login Error (Postgres):", err.message);
+    res.status(500).json({ error: "Database error during login." });
   }
 });
 
 // GET DYNAMIC FOUNDERS BY DOMAIN
 app.post('/api/founders/rising', async (req, res) => {
   const { userId, role } = req.body;
-  console.log(`Fetching rising founders for user: ${userId} (${role})`);
+  console.log(`Fetching rising founders for user: ${userId} (${role}) (Source: Postgres)`);
 
-  const session = driver.session();
   try {
-    // 1. Get Logged-in User's Domain
-    const userQuery = `MATCH (u:Investor {id: $userId}) RETURN COALESCE(u.domain, u.primary_domain) AS domain LIMIT 1`;
-    const userRes = await session.run(userQuery, { userId });
+    // Query Postgres for top founders (e.g., highest valuation)
+    // We can also filter by domain if we fetch the current user's domain first, but simple top list is a good start.
+    const query = `
+      SELECT id, name, company, valuation, past_funding, domain 
+      FROM founders 
+      WHERE name IS NOT NULL AND company IS NOT NULL
+      ORDER BY valuation DESC NULLS LAST
+      LIMIT 10
+    `;
 
-    let domain = null;
-    if (userRes.records.length > 0) {
-      domain = userRes.records[0].get('domain');
-      console.log(`User Domain found: ${domain}`);
-    } else {
-      console.log("No specific domain found for user, using default.");
+    const result = await pool.query(query);
+
+    if (result.rows.length === 0) {
+      throw new Error("No founders found in Postgres");
     }
 
-    // 2. Recommendation Query
-    // Logic: Find companies operated in the same domain OR just top companies if no domain
-    let recQuery = '';
-    let params = {};
+    const founders = result.rows.map(row => {
+      // Extract latest funding info
+      let round = 'Seed';
+      let year = '2024';
 
-    if (domain) {
-      // Find companies via INVESTORS in the same domain
-      recQuery = `
-        MATCH (i:Investor {domain: $domain})-[:INVESTED_IN]->(c:Company)
-        RETURN c.name AS company, c.founder AS name, c.round AS round, c.year AS year, c.valuation AS valuation, i.domain AS umbrella 
-        ORDER BY rand() 
-        LIMIT 6
-      `;
-      params = { domain };
-    } else {
-      // Fallback: Random top companies (Relaxed constraint: Optional founder)
-      recQuery = `
-        MATCH (c:Company)
-        WHERE c.name IS NOT NULL
-        RETURN c.name AS company, c.founder AS name, c.round AS round, c.year AS year, c.valuation AS valuation
-        ORDER BY rand() 
-        LIMIT 6
-      `;
-    }
+      if (Array.isArray(row.past_funding) && row.past_funding.length > 0) {
+        // Sort by year descending
+        const sorted = row.past_funding.sort((a, b) => (b.year || 0) - (a.year || 0));
+        const latest = sorted[0];
+        if (latest.round) round = latest.round;
+        if (latest.year) year = String(latest.year);
+      }
 
-    const result = await session.run(recQuery, params);
-
-    let founders = result.records.map(r => ({
-      company: r.get('company'),
-      name: r.get('name') || 'Pending',
-      round: r.get('round') || 'Seed',
-      year: r.get('year') ? r.get('year').toString() : '2024',
-      valuation: r.get('valuation') || 0,
-      umbrella: r.has('umbrella') ? r.get('umbrella') : 'Tech'
-    }));
-
-    if (founders.length === 0) {
-      throw new Error("No founders found in DB");
-    }
+      return {
+        id: String(row.id),
+        name: row.name,
+        company: row.company,
+        round: round,
+        year: year,
+        valuation: parseFloat(row.valuation || 0),
+        umbrella: row.domain || 'Tech'
+      };
+    });
 
     res.json({ success: true, founders });
 
   } catch (err) {
-    console.error("Error fetching founders (using fallback):", err.message);
+    console.error("Error fetching founders from Postgres:", err.message);
 
     // Fallback Mock Data
     const mockFounders = [
-      { company: "Nebula AI", name: "Alex Rivera", round: "Series A", year: "2024", valuation: 45000000, umbrella: "AI & ML" },
-      { company: "Zephyr Energy", name: "Sarah Chen", round: "Seed", year: "2023", valuation: 12000000, umbrella: "CleanTech" },
-      { company: "Flux Systems", name: "James Wilson", round: "Series B", year: "2022", valuation: 150000000, umbrella: "Robotics" },
-      { company: "Apex Bio", name: "Dr. Emily Zhang", round: "Series A", year: "2024", valuation: 60000000, umbrella: "Biotech" },
-      { company: "Quantum Leap", name: "David Kim", round: "Seed", year: "2024", valuation: 8000000, umbrella: "Quantum" },
-      { company: "Horizon Space", name: "Michael Chang", round: "Series C", year: "2021", valuation: 500000000, umbrella: "Aerospace" }
+      { id: 'm1', company: "Nebula AI", name: "Alex Rivera", round: "Series A", year: "2024", valuation: 45000000, umbrella: "AI & ML" },
+      { id: 'm2', company: "Zephyr Energy", name: "Sarah Chen", round: "Seed", year: "2023", valuation: 12000000, umbrella: "CleanTech" },
+      { id: 'm3', company: "Flux Systems", name: "James Wilson", round: "Series B", year: "2022", valuation: 150000000, umbrella: "Robotics" },
+      { id: 'm4', company: "Apex Bio", name: "Dr. Emily Zhang", round: "Series A", year: "2024", valuation: 60000000, umbrella: "Biotech" },
+      { id: 'm5', company: "Quantum Leap", name: "David Kim", round: "Seed", year: "2024", valuation: 8000000, umbrella: "Quantum" },
+      { id: 'm6', company: "Horizon Space", name: "Michael Chang", round: "Series C", year: "2021", valuation: 500000000, umbrella: "Aerospace" }
     ];
 
     res.json({ success: true, founders: mockFounders });
-  } finally {
-    session.close();
   }
 });
 

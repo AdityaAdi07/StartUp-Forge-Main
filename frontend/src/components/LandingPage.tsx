@@ -37,7 +37,7 @@ export const LandingPage = ({ onLogin }: LandingPageProps) => {
 
             const data = await res.json();
 
-            if (res.ok && data.success) {
+            if (res.ok && data.success && data.userId != null) {
                 onLogin(data.userId.toString(), role, data.name);
             } else {
                 setError(data.error || "Login failed. Please check your spelling.");

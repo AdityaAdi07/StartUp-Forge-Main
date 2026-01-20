@@ -112,12 +112,24 @@ router.get('/notifications', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing x-user-id header' });
 
     try {
-        const result = await pool.query(`
-      SELECT * FROM connection_requests 
-      WHERE sender_id = $1 AND status = 'ACCEPTED'
-      ORDER BY responded_at DESC
-    `, [userId]);
+        const query = `
+            SELECT 
+                cr.*,
+                COALESCE(f.name, i.name) as receiver_name,
+                COALESCE(f.company, i.firm_name) as receiver_headline,
+                 CASE 
+                    WHEN cr.receiver_role = 'FOUNDER' THEN 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                    WHEN cr.receiver_role = 'INVESTOR' THEN 'https://cdn-icons-png.flaticon.com/512/147/147144.png'
+                    ELSE 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                END as receiver_avatar
+            FROM connection_requests cr
+            LEFT JOIN founders f ON (cr.receiver_id = f.id AND cr.receiver_role = 'FOUNDER')
+            LEFT JOIN investors i ON (cr.receiver_id = i.id AND cr.receiver_role = 'INVESTOR')
+            WHERE cr.sender_id = $1 AND cr.status = 'ACCEPTED'
+            ORDER BY cr.responded_at DESC
+        `;
 
+        const result = await pool.query(query, [userId]);
         res.json(result.rows);
     } catch (err) {
         console.error(err);

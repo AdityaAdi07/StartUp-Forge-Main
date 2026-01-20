@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, Bell, MessageSquare, BrainCircuit, Sparkles, UserPlus, UserCheck, X, Check, Search, TrendingUp, ShieldCheck, Home } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Bell, MessageSquare, BrainCircuit, Sparkles, UserPlus, UserCheck, X, Check, TrendingUp, Home } from 'lucide-react';
 
 // --- Types ---
 interface AppUser {
@@ -36,8 +36,8 @@ interface NetworkPageProps {
 
 export function NetworkPage({
   currentUser,
-  founders,
-  investors,
+  // founders - unused
+  // investors - unused
   followedUsers,
   connectedUsers,
   onRejectRequest,
@@ -67,9 +67,9 @@ export function NetworkPage({
         const mapped = data.map((r: any) => ({
           id: r.id,
           userId: String(r.sender_id),
-          userName: `User ${r.sender_id}`, // Ideally fetch name
-          userHeadline: r.sender_role || 'Founder',
-          userAvatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+          userName: r.sender_name || `User ${r.sender_id}`,
+          userHeadline: r.sender_headline || r.sender_role || 'Founder',
+          userAvatar: r.sender_avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
           mutualConnections: 0
         }));
         setRequests(mapped);
@@ -255,12 +255,12 @@ export function NetworkPage({
           </div>
 
           {/* Icons */}
-          <div className="flex items-center gap-8 flex-shrink-0">
-            <ActionItem icon={<Home className="w-7 h-7" />} label="Home" onClick={() => onNavigate('home')} />
-            <ActionItem icon={<Users className="w-7 h-7" />} label="Network" onClick={() => onNavigate('network')} />
-            <ActionItem icon={<Bell className="w-7 h-7" />} label="Alerts" badge={true} onClick={() => onNavigate('notifications')} />
-            <ActionItem icon={<MessageSquare className="w-7 h-7" />} label="Inbox" onClick={() => onNavigate('messages')} />
-            <ActionItem icon={<BrainCircuit className="w-7 h-7" />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ActionItem icon={<Home />} label="Home" onClick={() => onNavigate('home')} />
+            <ActionItem icon={<Users />} label="Network" onClick={() => onNavigate('network')} active={true} />
+            <ActionItem icon={<Bell />} label="Alerts" badge={true} onClick={() => onNavigate('notifications')} />
+            <ActionItem icon={<MessageSquare />} label="Inbox" onClick={() => onNavigate('messages')} />
+            <ActionItem icon={<BrainCircuit />} label="Deep Analysis" onClick={() => onNavigate('conflict-report')} />
           </div>
         </div>
       </div>
@@ -389,17 +389,22 @@ export function NetworkPage({
 
 // --- Sub-components (Copied for consistency) ---
 
-function ActionItem({ icon, label, onClick, badge }: { icon: React.ReactNode, label: string, onClick: () => void, badge?: boolean }) {
+function ActionItem({ icon, label, onClick, badge, active }: { icon: any, label: string, onClick: () => void, badge?: boolean, active?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center justify-center text-slate-600 hover:text-white hover:bg-slate-900 p-2 rounded-xl transition-all group min-w-20 relative"
+      className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl transition-all duration-300 group min-w-20 relative ${active ? 'bg-indigo-50/80' : 'hover:bg-slate-50'}`}
     >
-      <div className="relative mb-0.5 transform group-hover:scale-105 transition-transform duration-200">
-        {icon}
-        {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+      <div className={`relative transform transition-transform duration-300 ${active ? 'scale-105' : 'group-hover:scale-110'}`}>
+        <div className={`p-1.5 rounded-xl transition-colors duration-300 ${active ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 group-hover:text-slate-700 bg-transparent'}`}>
+          {React.cloneElement(icon, {
+            strokeWidth: active ? 2.5 : 2,
+            className: "w-6 h-6"
+          })}
+        </div>
+        {badge && <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white shadow-sm animate-pulse"></span>}
       </div>
-      <span className="text-xs font-medium tracking-wide group-hover:text-white">{label}</span>
+      <span className={`text-[11px] font-bold tracking-tight transition-colors duration-300 ${active ? 'text-indigo-700' : 'text-slate-400 group-hover:text-slate-600'}`}>{label}</span>
     </button>
   );
 }
