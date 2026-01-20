@@ -121,7 +121,7 @@ app.post('/api/founders/rising', async (req, res) => {
   const session = driver.session();
   try {
     // 1. Get Logged-in User's Domain
-    const userQuery = `MATCH (u:Investor {id: $userId}) RETURN u.domain AS domain LIMIT 1`;
+    const userQuery = `MATCH (u:Investor {id: $userId}) RETURN COALESCE(u.domain, u.primary_domain) AS domain LIMIT 1`;
     const userRes = await session.run(userQuery, { userId });
 
     let domain = null;
@@ -139,20 +139,18 @@ app.post('/api/founders/rising', async (req, res) => {
 
     if (domain) {
       // Find companies via INVESTORS in the same domain
-      // heuristic: "If an investor focuses on 'Advertising', their portfolio companies are likely relevant."
       recQuery = `
         MATCH (i:Investor {domain: $domain})-[:INVESTED_IN]->(c:Company)
-        WHERE c.founder IS NOT NULL
         RETURN c.name AS company, c.founder AS name, c.round AS round, c.year AS year, c.valuation AS valuation, i.domain AS umbrella 
         ORDER BY rand() 
         LIMIT 6
       `;
       params = { domain };
     } else {
-      // Fallback: Random top companies
+      // Fallback: Random top companies (Relaxed constraint: Optional founder)
       recQuery = `
         MATCH (c:Company)
-        WHERE c.founder IS NOT NULL
+        WHERE c.name IS NOT NULL
         RETURN c.name AS company, c.founder AS name, c.round AS round, c.year AS year, c.valuation AS valuation
         ORDER BY rand() 
         LIMIT 6
@@ -163,10 +161,10 @@ app.post('/api/founders/rising', async (req, res) => {
 
     let founders = result.records.map(r => ({
       company: r.get('company'),
-      name: r.get('name'),
-      round: r.get('round'),
-      year: r.get('year').toString(),
-      valuation: r.get('valuation'),
+      name: r.get('name') || 'Pending',
+      round: r.get('round') || 'Seed',
+      year: r.get('year') ? r.get('year').toString() : '2024',
+      valuation: r.get('valuation') || 0,
       umbrella: r.has('umbrella') ? r.get('umbrella') : 'Tech'
     }));
 
@@ -286,6 +284,50 @@ app.get('/api/users/investors', async (req, res) => {
 });
 
 
+// BATCH GET USERS (for History/Widgets)
+app.post('/api/users/batch', async (req, res) => {
+  const { items } = req.body; // Expects [{id: '1', role: 'founder'}]
+  if (!items || !Array.isArray(items)) return res.json([]);
+
+  try {
+    const founderIds = items.filter(i => i.role === 'founder').map(i => parseInt(i.id)).filter(id => !isNaN(id));
+    const investorIds = items.filter(i => i.role === 'investor').map(i => parseInt(i.id)).filter(id => !isNaN(id));
+
+    const promises = [];
+
+    if (founderIds.length > 0) {
+      promises.push(pool.query(`
+                SELECT id, name, company as headline, 'founder' as role 
+                FROM founders 
+                WHERE id = ANY($1::int[])
+            `, [founderIds]));
+    }
+
+    if (investorIds.length > 0) {
+      promises.push(pool.query(`
+                SELECT id, name, firm_name as headline, 'investor' as role 
+                FROM investors 
+                WHERE id = ANY($1::int[])
+            `, [investorIds]));
+    }
+
+    const results = await Promise.all(promises);
+    const combined = results.flatMap(r => r.rows).map(u => ({
+      ...u,
+      id: String(u.id),
+      avatar: u.role === 'founder'
+        ? 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+        : 'https://cdn-icons-png.flaticon.com/512/147/147144.png'
+    }));
+
+    res.json(combined);
+
+  } catch (e) {
+    console.error("Batch Fetch Error:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // GET USER BY ID
 app.get('/api/users/:id', async (req, res) => {
   const { id } = req.params;
@@ -323,9 +365,16 @@ app.get('/api/users/:id', async (req, res) => {
     // Check Founder (Company)
     const founderResult = await session.run(`
       MATCH (c:Company {id: $id})
+      OPTIONAL MATCH (c)-[:COMPETES_WITH]->(comp:Company)
+      OPTIONAL MATCH (p:Company)-[:HAS_SUBSIDIARY]->(c)
       RETURN c.founder AS name, c.name AS company, 'Founder' AS role,
              c.description AS about, c.location AS location,
-             c.domain AS domain
+             c.domain AS domain,
+             c.valuation AS valuation,
+             c.round AS round,
+             c.year AS year,
+             collect(distinct comp.name) AS competitors,
+             collect(distinct p.name) AS umbrella
     `, { id });
 
     if (founderResult.records.length > 0) {
@@ -342,7 +391,14 @@ app.get('/api/users/:id', async (req, res) => {
           location: r.get('location') || 'Global',
           about: r.get('about') || `Building ${r.get('company')}`,
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(r.get('name') || 'Founder')}&background=random`,
-          tags: r.get('domain') ? [r.get('domain')] : []
+          tags: r.get('domain') ? [r.get('domain')] : [],
+          // Expanded Data for Prediction
+          primaryDomain: r.get('domain'),
+          valuation: typeof r.get('valuation') === 'object' ? r.get('valuation').toNumber() : r.get('valuation'),
+          fundingYear: typeof r.get('year') === 'object' ? r.get('year').toNumber() : r.get('year'),
+          fundingRound: r.get('round'),
+          competitors: r.get('competitors'),
+          umbrella: r.get('umbrella')
         }
       });
     }

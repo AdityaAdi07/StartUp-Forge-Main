@@ -107,6 +107,114 @@ class InvestorMatch(BaseModel):
 class MatchResponse(BaseModel):
     matches: List[InvestorMatch]
 
+class PredictInput(BaseModel):
+    company: str
+    domain: str
+    funding_amount: float
+    valuation: float
+    funding_year: int
+    competitors: List[str]
+    umbrella_companies: List[str]
+
+class ValuationProjection(BaseModel):
+    three_months: float
+    six_months: float
+    one_year: float
+    five_years: float
+
+    class Config:
+        fields = {
+            'three_months': '3_months',
+            'six_months': '6_months',
+            'one_year': '1_year',
+            'five_years': '5_years'
+        }
+        allow_population_by_field_name = True
+
+class PredictResponse(BaseModel):
+    growth_rate: float
+    growth_class: str
+    valuation_projection: Dict[str, float]
+    acquisition_probability: float
+
+@app.post("/predict", response_model=PredictResponse)
+async def predict_growth(data: PredictInput):
+    # --- 1. Calculate Growth Rate ---
+    # Simple CAGR-like heuristic:
+    # If we have valuation > funding, it suggests growth.
+    # Years elapsed = Current Year (2025/2026?) - funding_year
+    import datetime
+    current_year = datetime.datetime.now().year
+    years_elapsed = max(0.5, current_year - data.funding_year)
+    
+    if data.funding_amount > 0:
+        # Avoid division by zero
+        # Raw multiple
+        multiple = data.valuation / data.funding_amount
+        
+        # Helper: Logarithmic damping for realistic rates
+        # growth_rate ~= ln(multiple) / years
+        try:
+            raw_rate = np.log(multiple) / years_elapsed
+        except:
+            raw_rate = 0.0
+            
+        # Adjust based on competitors
+        # More competitors might mean slower growth (saturation) OR valid market (hot).
+        # Let's assume saturation penalty slightly.
+        comp_penalty = 0.01 * len(data.competitors)
+        growth_rate = max(0.0, raw_rate - comp_penalty)
+    else:
+        growth_rate = 0.05 # Default modest growth
+
+    # --- 2. Classify Growth ---
+    if growth_rate > 0.5:
+        growth_class = "High"
+    elif growth_rate > 0.15:
+        growth_class = "Medium"
+    else:
+        growth_class = "Low"
+
+    # --- 3. Valuation Projection ---
+    # Projection = CurrentVal * e^(rate * time)
+    def project(t):
+        return data.valuation * np.exp(growth_rate * t)
+
+    projections = {
+        "3_months": project(0.25),
+        "6_months": project(0.5),
+        "1_year": project(1.0),
+        "5_years": project(5.0)
+    }
+
+    # --- 4. Acquisition Probability ---
+    # Heuristic: 
+    # High valuation -> Lower prob (too expensive)
+    # Many competitors -> Higher prob (consolidation)
+    # Umbrella companies -> Higher prob (parent might buy)
+    
+    base_prob = 0.2
+    
+    # Valuation factor: (Normalize to e.g. 100M)
+    # If val > 100M, prob logic decreases
+    val_factor = max(0, 1 - (data.valuation / 500_000_000)) # Zero if > 500M
+    
+    # Competitor factor
+    comp_factor = min(0.3, 0.05 * len(data.competitors))
+    
+    # Umbrella factor
+    umb_factor = 0.2 if data.umbrella_companies else 0.0
+    
+    acq_prob = base_prob * val_factor + comp_factor + umb_factor
+    acq_prob = min(max(acq_prob, 0.0), 1.0) # Clip 0-1
+
+    return PredictResponse(
+        growth_rate=growth_rate,
+        growth_class=growth_class,
+        valuation_projection=projections,
+        acquisition_probability=round(acq_prob, 2)
+    )
+
 @app.on_event("startup")
 async def load_resources():
     global investors_df, match_model, safety_model, embedder, domain_embeddings, mlb_stages, stage_features

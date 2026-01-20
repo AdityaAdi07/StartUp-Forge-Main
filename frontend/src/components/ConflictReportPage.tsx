@@ -1,3 +1,4 @@
+// Enhanced UI - v2.0 - Vibrant Colors Applied - 00:46
 import { useState, useEffect } from "react";
 import { User } from '../App';
 import { SearchResultsDropdown } from './SearchResultsDropdown';
@@ -9,7 +10,7 @@ import ConflictExplanationPanel from "@/components/coi/ConflictExplanationPanel"
 import ComplianceActions from "@/components/coi/ComplianceActions";
 
 // UI Components
-import { Users, Bell, MessageSquare, X, BrainCircuit, Sparkles, ShieldCheck, Clock, Target, CheckCircle2, Building2, Home } from 'lucide-react';
+import { Users, Bell, MessageSquare, X, BrainCircuit, Sparkles, ShieldCheck, Clock, Target, CheckCircle2, Building2, Home, Search } from 'lucide-react';
 import { Toaster, toast } from "sonner";
 
 interface ConflictReportPageProps {
@@ -124,9 +125,9 @@ const ConflictReportPage = ({
     }
 
     return (
-        <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
             {/* --- Fixed Header (From HomePage) --- */}
-            <div className="bg-white px-8 py-6 shadow-sm border-b border-slate-100 z-50 flex-shrink-0">
+            <div className="sticky top-0 bg-white px-8 py-6 shadow-sm border-b border-slate-100 z-50 flex-shrink-0">
                 <div className="flex items-center justify-between gap-6 w-full h-24">
 
                     {/* Profile */}
@@ -143,8 +144,8 @@ const ConflictReportPage = ({
                             <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <div className="flex flex-col items-start">
-                            <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800">{currentUser.name}</span>
-                            <span className="text-xs text-gray-500 font-medium">View Profile</span>
+                            <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800"><b>{currentUser.name}</b></span>
+                            <span className="text-xs text-gray-500 font-medium"><b>View Profile</b></span>
                         </div>
                     </button>
 
@@ -201,108 +202,128 @@ const ConflictReportPage = ({
             </div>
 
             {/* --- Main Content Area --- */}
-            <main className="flex-1 w-full overflow-hidden bg-slate-50/50 p-6">
-                <div className="w-full max-w-[1800px] mx-auto h-full flex flex-col gap-6">
+            <main
+                className="flex-1 w-full overflow-y-auto p-4"
+                style={{
+                    background: 'linear-gradient(to bottom right, rgb(248 250 252), rgb(238 242 255 / 0.2), rgb(248 250 252))'
+                }}
+            >
+                <div className="w-full max-w-[1800px] mx-auto min-h-full flex flex-col gap-4">
 
                     {/* Header Row */}
-                    <div className="w-full flex items-center justify-between flex-shrink-0">
+                    <div className="w-full flex items-center justify-between flex-shrink-0 pb-1">
                         <div>
-                            <h2 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-                                <ShieldCheck className="w-6 h-6 text-indigo-600" />
-                                Institutional Conflict Check
+                            <h2 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                                <div className="p-3 bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600 rounded-2xl shadow-xl shadow-indigo-500/40 ring-2 ring-indigo-100 relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <ShieldCheck className="w-5 h-5 text-white relative z-10" />
+                                </div>
+                                <b>Institutional Conflict Check</b>
                             </h2>
+                            <p className="text-sm text-slate-600 font-semibold mt-1 ml-14 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                <b>Real-time adversarial relationship analysis</b>
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-slate-200 shadow-sm text-slate-500 font-medium text-xs">
-                                <Clock className="w-3.5 h-3.5" />
-                                {new Date().toLocaleDateString()}
+                            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-white to-indigo-50/50 rounded-xl border border-indigo-200/60 shadow-md text-slate-700 font-semibold text-xs hover:shadow-lg transition-shadow">
+                                <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </div>
                         </div>
                     </div>
 
-                    {/* Dashboard Layout: Stacked Rows with Internal Splits */}
-                    <div className="flex flex-col gap-8 pb-20 max-w-[1600px] mx-auto w-full">
+                    {/* Dashboard Layout */}
+                    <div className="flex flex-col gap-4 pb-16 max-w-[1600px] mx-auto w-full">
 
                         {/* ROW 1: Selection & Details */}
-                        {/* ROW 1: Selection & Details */}
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-2 gap-4">
                             {/* Left: Entity Selection */}
-                            <div className="bg-white shadow-sm border border-slate-200 p-10 h-full" style={{ borderRadius: '50px' }}>
-                                <EntitySelectionPanel
-                                    onRunCheck={handleRunCheck}
-                                    isLoading={isAnalyzing}
-                                    preselectedInvestor={currentInvestorName}
-                                    preselectedTarget={targetCompanyName}
-                                    compact={true}
-                                />
+                            <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-white h-full flex flex-col">
+                                {/* Header with Solid Navy Background */}
+                                <div className="bg-slate-900 px-4 py-3 flex items-center gap-2.5">
+                                    <div className="bg-white/10 p-2 rounded-lg border border-white/20 backdrop-blur-sm">
+                                        <Search className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white leading-tight"><b>Entity Selection</b></h3>
+                                        <p className="text-xs text-slate-300 font-medium"><b>Configure conflict parameters</b></p>
+                                    </div>
+                                </div>
+                                <div className="flex-1 p-4 bg-slate-50">
+                                    <EntitySelectionPanel
+                                        onRunCheck={handleRunCheck}
+                                        isLoading={isAnalyzing}
+                                        preselectedInvestor={currentInvestorName}
+                                        preselectedTarget={targetCompanyName}
+                                        compact={true}
+                                    />
+                                </div>
                             </div>
 
                             {/* Right: Current Analysis Details */}
-                            <div className="bg-white shadow-sm border border-slate-200 p-10 flex flex-col h-full" style={{ borderRadius: '50px' }}>
-                                <div className="flex items-center gap-3 mb-8 px-1">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 shadow-md shadow-slate-900/20">
-                                        <Building2 className="h-5 w-5 text-white" />
+                            <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-white h-full flex flex-col">
+                                {/* Header with Solid Navy Background */}
+                                <div className="bg-slate-900 px-4 py-3 flex items-center gap-2.5">
+                                    <div className="bg-white/10 p-2 rounded-lg border border-white/20 backdrop-blur-sm">
+                                        <Building2 className="w-5 h-5 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-extrabold text-slate-900">Analysis Details</h3>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white leading-tight"><b>Analysis Scope</b></h3>
+                                        <p className="text-xs text-slate-300 font-medium"><b>Entities under review</b></p>
+                                    </div>
                                 </div>
 
-                                <div className="flex-1 flex flex-col gap-6">
-                                    <div className="grid grid-cols-2 gap-6">
-                                        {/* Fixed height cards instead of filling space */}
-                                        <div className="min-h-[160px] p-6 bg-slate-50 rounded-[2rem] border border-slate-200 flex flex-col justify-center transition-all hover:bg-slate-100/50 hover:border-slate-300 group relative overflow-hidden">
-                                            {/* Decorative background element */}
-                                            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-100/50 rounded-bl-[4rem] -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-
-                                            <span className="relative z-10 text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2 group-hover:text-slate-500 transition-colors">
-                                                <div className="p-1.5 bg-white rounded-lg border border-slate-100 shadow-sm">
-                                                    <Users className="w-3.5 h-3.5 text-indigo-500" />
+                                <div className="flex-1 p-4 bg-slate-50 flex flex-col gap-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Primary Investor Card */}
+                                        <div className="min-h-[100px] p-3 bg-white rounded-lg border border-slate-200 flex flex-col justify-center hover:border-indigo-300 hover:shadow-md transition-all group">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                                <div className="p-1 bg-indigo-50 rounded text-indigo-600 border border-indigo-100">
+                                                    <Users className="w-3 h-3" />
                                                 </div>
-                                                Primary Investor
+                                                <b>Primary Investor</b>
                                             </span>
-                                            <div className="relative z-10 font-extrabold text-slate-900 text-2xl leading-tight line-clamp-3">
-                                                {selectedInvestor || "Not Selected"}
+                                            <div className="font-black text-slate-900 text-lg leading-tight line-clamp-2 pl-1">
+                                                {selectedInvestor || <span className="text-slate-400 italic font-medium text-sm"><b>Not Selected</b></span>}
                                             </div>
                                         </div>
 
-                                        <div className="min-h-[160px] p-6 bg-slate-50 rounded-[2rem] border border-slate-200 flex flex-col justify-center transition-all hover:bg-slate-100/50 hover:border-slate-300 group relative overflow-hidden">
-                                            {/* Decorative background element */}
-                                            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-100/50 rounded-bl-[4rem] -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-
-                                            <span className="relative z-10 text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2 group-hover:text-slate-500 transition-colors">
-                                                <div className="p-1.5 bg-white rounded-lg border border-slate-100 shadow-sm">
-                                                    <Target className="w-3.5 h-3.5 text-emerald-500" />
+                                        {/* Target Company Card */}
+                                        <div className="min-h-[100px] p-3 bg-white rounded-lg border border-slate-200 flex flex-col justify-center hover:border-emerald-300 hover:shadow-md transition-all group">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                                <div className="p-1 bg-emerald-50 rounded text-emerald-600 border border-emerald-100">
+                                                    <Target className="w-3 h-3" />
                                                 </div>
-                                                Target Company
+                                                <b>Target Company</b>
                                             </span>
-                                            <div className="relative z-10 font-extrabold text-slate-900 text-2xl leading-tight line-clamp-3">
-                                                {selectedTarget || "Not Selected"}
+                                            <div className="font-black text-slate-900 text-lg leading-tight line-clamp-2 pl-1">
+                                                {selectedTarget || <span className="text-slate-400 italic font-medium text-sm"><b>Not Selected</b></span>}
                                             </div>
                                         </div>
                                     </div>
 
                                     <div>
                                         {hasResults ? (
-                                            <div className="flex items-center gap-4 px-6 py-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-emerald-700 shadow-sm">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white border border-emerald-200 shadow-sm">
-                                                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                            <div className="flex items-center gap-3 px-3 py-2.5 bg-emerald-50 rounded-lg border border-emerald-200 shadow-sm">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-600 border border-emerald-200">
+                                                    <CheckCircle2 className="h-4 w-4" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-base font-bold text-emerald-900">Analysis Complete</span>
-                                                    <span className="text-xs font-medium text-emerald-600/80">
-                                                        Conflict check finalized on {new Date().toLocaleDateString()}
+                                                    <span className="text-sm font-bold text-emerald-900 tracking-tight"><b>Analysis Complete</b></span>
+                                                    <span className="text-[10px] font-semibold text-emerald-600/70">
+                                                        Finalized {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                     </span>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-4 px-6 py-5 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm text-slate-400">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 border border-slate-100">
-                                                    <Clock className="h-5 w-5 text-slate-300" />
+                                            <div className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:bg-slate-50 transition-all group">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                                                    <Clock className="h-4 w-4" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-base font-bold text-slate-500">Ready to Analyze</span>
-                                                    <span className="text-xs font-medium opacity-60">
-                                                        Select entities to begin conflict check
-                                                    </span>
+                                                    <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors uppercase tracking-wide">Ready to Analyze</span>
+                                                    <span className="text-[10px] font-medium text-slate-400">Waiting for selection</span>
                                                 </div>
                                             </div>
                                         )}
@@ -311,15 +332,20 @@ const ConflictReportPage = ({
                             </div>
                         </div>
 
-                        {/* ROW 2: Relationship Graph (Full Width) */}
-                        <div className="mt-10 bg-white shadow-sm border border-slate-200 p-6 flex flex-col min-h-[600px] relative overflow-hidden" style={{ borderRadius: '50px' }}>
-
-                            <div className="absolute top-8 left-8 z-10 bg-white/90 backdrop-blur-md px-5 py-2 rounded-full border border-slate-200 shadow-sm pointer-events-none flex items-center gap-2">
-                                <BrainCircuit className="w-4 h-4 text-indigo-500" />
-                                <span className="text-sm font-bold text-slate-700">Relationship Analysis</span>
+                        {/* ROW 2: Relationship Graph */}
+                        <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-white min-h-[550px] flex flex-col">
+                            {/* Header with Solid Navy Background */}
+                            <div className="bg-slate-900 px-4 py-3 flex items-center gap-2.5">
+                                <div className="bg-white/10 p-2 rounded-lg border border-white/20 backdrop-blur-sm">
+                                    <BrainCircuit className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white leading-tight"><b>Relationship Graph</b></h3>
+                                    <p className="text-xs text-slate-300 font-medium"><b>Visualizing connections between entities</b></p>
+                                </div>
                             </div>
                             {hasResults ? (
-                                <div className="flex-1 w-full h-full">
+                                <div className="flex-1 w-full h-full relative z-10">
                                     <RelationshipGraph
                                         investorName={selectedInvestor}
                                         targetCompany={selectedTarget}
@@ -329,26 +355,29 @@ const ConflictReportPage = ({
                                     />
                                 </div>
                             ) : (
-                                <div className="flex-1 flex items-center justify-center flex-col text-slate-400 bg-slate-50/50 rounded-xl m-1 border border-dashed border-slate-200">
-                                    <BrainCircuit className="w-16 h-16 mb-4 opacity-30" />
-                                    <p className="text-sm font-medium">Run analysis to generate graph</p>
+                                <div className="flex-1 flex items-center justify-center flex-col text-slate-400 bg-slate-50/50 rounded-2xl m-2 border-2 border-dashed border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/20 transition-all group">
+                                    <div className="p-6 bg-white rounded-2xl shadow-sm mb-4 group-hover:shadow-md transition-shadow">
+                                        <BrainCircuit className="w-14 h-14 text-slate-300 group-hover:text-indigo-300 transition-colors" />
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors"> Run analysis to generate relationship graph</p>
+                                    <p className="text-xs text-slate-400 mt-1"><b>Visualize connections and conflicts</b></p>
                                 </div>
                             )}
                         </div>
 
                         {/* ROW 3: Risk Summary Section */}
-                        {/* ROW 3: Risk Summary Section */}
-                        <div className="mt-10 flex flex-col gap-6">
-                            <h3 className="text-xl font-extrabold text-slate-900 flex items-center gap-3 px-1">
-                                <div className="p-2 bg-slate-900 rounded-lg shadow-md shadow-slate-900/20">
-                                    <ShieldCheck className="w-5 h-5 text-white" />
+                        <div className="flex flex-col gap-4 mt-1">
+                            <h3 className="text-lg font-black text-slate-900 flex items-center gap-3">
+                                <div className="p-3 bg-gradient-to-br from-rose-600 via-rose-500 to-orange-600 rounded-2xl shadow-xl shadow-rose-500/40 ring-2 ring-rose-100 relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <ShieldCheck className="w-4 h-4 text-white relative z-10" />
                                 </div>
-                                Conflict Risk Assessment
+                                <b>Conflict Risk Assessment</b>
                             </h3>
 
                             {/* Inner Grid for Risk Levels */}
-                            <div className="grid grid-cols-2 gap-6 ">
-                                <div className="flex flex-col h-full w-full ">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col h-full w-full">
                                     {hasResults ? (
                                         <RiskOverviewCard
                                             level={1}
@@ -356,16 +385,16 @@ const ConflictReportPage = ({
                                             riskScore={isLevel1 ? 45 : 0}
                                             relationships={level1Tags}
                                             description={isLevel1 ? "Direct portfolio overlap." : "No direct conflict."}
-                                            className="h-full border border-slate-200 shadow-sm"
+                                            className="h-full shadow-sm hover:shadow-md transition-shadow"
                                         />
                                     ) : (
-                                        <div className="h-full min-h-[300px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-slate-300 hover:bg-slate-100/50">
-                                            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-                                                <Users className="w-8 h-8 text-slate-300" />
+                                        <div className="h-full min-h-[260px] bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white border-2 border-dashed border-indigo-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-indigo-300 hover:from-indigo-100/60 hover:to-indigo-50/30 hover:shadow-lg group">
+                                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 border-2 border-indigo-200 flex items-center justify-center shadow-md group-hover:shadow-xl group-hover:scale-110 transition-all">
+                                                <Users className="w-8 h-8 text-indigo-600 group-hover:text-indigo-700 transition-colors" />
                                             </div>
                                             <div className="text-center">
-                                                <span className="text-sm font-bold uppercase tracking-wider text-slate-500 block mb-1">Conflict Level 1</span>
-                                                <span className="text-xs font-medium opacity-70">Analysis pending...</span>
+                                                <span className="text-xs font-black uppercase tracking-wider text-indigo-700 block mb-1"><b>Level 1 Check</b></span>
+                                                <span className="text-xs font-semibold text-indigo-500/80"><b>Direct Portfolio Overlap</b></span>
                                             </div>
                                         </div>
                                     )}
@@ -378,16 +407,16 @@ const ConflictReportPage = ({
                                             riskScore={isLevel2 ? 85 : 0}
                                             relationships={level2Tags}
                                             description={isLevel2 ? "Indirect subsidiary/competitor." : "No indirect conflict."}
-                                            className="h-full border border-slate-200 shadow-sm"
+                                            className="h-full shadow-sm hover:shadow-md transition-shadow"
                                         />
                                     ) : (
-                                        <div className="h-full min-h-[300px] bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-slate-300 hover:bg-slate-100/50">
-                                            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-                                                <BrainCircuit className="w-8 h-8 text-slate-300" />
+                                        <div className="h-full min-h-[260px] bg-gradient-to-br from-purple-50 via-violet-50/50 to-white border-2 border-dashed border-purple-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-purple-300 hover:from-purple-100/60 hover:to-purple-50/30 hover:shadow-lg group">
+                                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 border-2 border-purple-200 flex items-center justify-center shadow-md group-hover:shadow-xl group-hover:scale-110 transition-all">
+                                                <BrainCircuit className="w-8 h-8 text-purple-600 group-hover:text-purple-700 transition-colors" />
                                             </div>
                                             <div className="text-center">
-                                                <span className="text-sm font-bold uppercase tracking-wider text-slate-500 block mb-1">Conflict Level 2</span>
-                                                <span className="text-xs font-medium opacity-70">Analysis pending...</span>
+                                                <span className="text-xs font-black uppercase tracking-wider text-purple-700 block mb-1"><b>Level 2 Check</b></span>
+                                                <span className="text-xs font-semibold text-purple-500/80"><b>Deep Subsidiary Analysis</b></span>
                                             </div>
                                         </div>
                                     )}
@@ -395,59 +424,73 @@ const ConflictReportPage = ({
                             </div>
                         </div>
 
-                        {/* ROW 4: Conflict Explanation (Separate Card) */}
-                        <div className="mt-10 flex flex-col gap-6">
-                            <h3 className="text-xl font-extrabold text-slate-900 flex items-center gap-3 px-1">
-                                <div className="p-2 bg-slate-900 rounded-lg shadow-md shadow-slate-900/20">
+                        {/* ROW 4: Conflict Explanation */}
+                        <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-white mt-4">
+                            {/* Header */}
+                            <div className="bg-slate-900 px-4 py-3 flex items-center gap-2.5">
+                                <div className="bg-white/10 p-2 rounded-lg border border-white/20 backdrop-blur-sm">
                                     <MessageSquare className="w-5 h-5 text-white" />
                                 </div>
-                                Detailed Conflict Explanation
-                            </h3>
-                            {hasResults ? (
-                                <ConflictExplanationPanel
-                                    conflicts={explanationConflicts}
-                                    hideHeader={true}
-                                    className="border border-slate-200 shadow-sm"
-                                />
-                            ) : (
-                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] min-h-[300px] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-slate-300 hover:bg-slate-100/50">
-                                    <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-                                        <MessageSquare className="w-8 h-8 text-slate-300" />
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="text-sm font-bold uppercase tracking-wider text-slate-500 block mb-1">Explanation Pending</span>
-                                        <span className="text-xs font-medium opacity-70">Run analysis to view plain-english explanation</span>
-                                    </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white leading-tight"><b>Detailed Explanation</b></h3>
+                                    <p className="text-xs text-slate-300 font-medium"><b>Plain-english breakdown of findings</b></p>
                                 </div>
-                            )}
+                            </div>
+
+                            <div className="p-4 bg-slate-50">
+                                {hasResults ? (
+                                    <ConflictExplanationPanel
+                                        conflicts={explanationConflicts}
+                                        hideHeader={true}
+                                        className="shadow-sm border border-slate-200 rounded-lg bg-white"
+                                    />
+                                ) : (
+                                    <div className="bg-white border-2 border-dashed border-slate-200 rounded-xl min-h-[220px] flex flex-col items-center justify-center text-slate-400 gap-3 group hover:border-blue-300 transition-colors">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                            <MessageSquare className="w-6 h-6 text-blue-500" />
+                                        </div>
+                                        <div className="text-center px-8">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1"><b>Explanation Pending</b></span>
+                                            <span className="text-xs font-medium text-slate-400"><b>Run analysis to view details</b></span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        {/* ROW 5: Compliance Actions (Separate Card) */}
-                        <div className="mt-10 flex flex-col gap-6">
-                            <h3 className="text-xl font-extrabold text-slate-900 flex items-center gap-3 px-1">
-                                <div className="p-2 bg-slate-900 rounded-lg shadow-md shadow-slate-900/20">
+                        {/* ROW 5: Compliance Actions */}
+                        <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-white mt-4 mb-8">
+                            {/* Header */}
+                            <div className="bg-slate-900 px-4 py-3 flex items-center gap-2.5">
+                                <div className="bg-white/10 p-2 rounded-lg border border-white/20 backdrop-blur-sm">
                                     <ShieldCheck className="w-5 h-5 text-white" />
                                 </div>
-                                Recommended Compliance Actions
-                            </h3>
-                            {hasResults ? (
-                                <ComplianceActions
-                                    reportData={conflictData}
-                                    fileNamePrefix={`COI_${selectedInvestor}_${selectedTarget}`}
-                                    hideHeader={true}
-                                    className="border border-slate-200 shadow-sm"
-                                />
-                            ) : (
-                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] min-h-[250px] flex flex-col items-center justify-center text-slate-400 gap-4 transition-all hover:border-slate-300 hover:bg-slate-100/50">
-                                    <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-                                        <ShieldCheck className="w-8 h-8 text-slate-300" />
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="text-sm font-bold uppercase tracking-wider text-slate-500 block mb-1">Actions Unavailable</span>
-                                        <span className="text-xs font-medium opacity-70">Run analysis to generate compliance recommendations</span>
-                                    </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white leading-tight"><b>Compliance Actions</b></h3>
+                                    <p className="text-xs text-slate-300 font-medium"><b>Recommended next steps</b></p>
                                 </div>
-                            )}
+                            </div>
+
+                            <div className="p-4 bg-slate-50">
+                                {hasResults ? (
+                                    <ComplianceActions
+                                        reportData={conflictData}
+                                        fileNamePrefix={`COI_${selectedInvestor}_${selectedTarget}`}
+                                        hideHeader={true}
+                                        className="shadow-sm border border-slate-200 rounded-lg bg-white"
+                                    />
+                                ) : (
+                                    <div className="bg-white border-2 border-dashed border-slate-200 rounded-xl min-h-[180px] flex flex-col items-center justify-center text-slate-400 gap-3 group hover:border-emerald-300 transition-colors">
+                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                                            <ShieldCheck className="w-6 h-6 text-emerald-500" />
+                                        </div>
+                                        <div className="text-center px-8">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1"><b>Actions Unavailable</b></span>
+                                            <span className="text-xs font-medium text-slate-400"><b>Analysis required</b></span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                     </div>
@@ -477,7 +520,7 @@ function ActionItem({ icon, label, onClick, badge }: { icon: React.ReactNode, la
                 {icon}
                 {badge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
             </div>
-            <span className="text-xs font-medium tracking-wide group-hover:text-white">{label}</span>
+            <span className="text-xs font-medium tracking-wide group-hover:text-white"><b>{label}</b></span>
         </button>
     );
 }
@@ -492,13 +535,15 @@ function ProfileModal({ currentUser, onClose, onNavigate }: { currentUser: User,
                 <div className="h-28 bg-gradient-to-r from-gray-800 to-gray-900"></div>
                 <div className="px-6 pb-6 -mt-12 text-center">
                     <img src={currentUser.avatar} alt={currentUser.name} className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto object-cover bg-white" />
-                    <h2 className="mt-3 text-xl font-bold text-gray-900">{currentUser.name}</h2>
-                    <p className="text-sm text-gray-500 mb-4">{currentUser.headline}</p>
+                    <h2 className="mt-3 text-xl font-bold text-gray-900"><b>{currentUser.name}</b></h2>
+                    <p className="text-sm text-gray-500 mb-4"><b>{currentUser.headline}</b></p>
                     <button onClick={() => { onClose(); onNavigate('profile'); }} className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-all shadow-lg">
-                        View Full Profile
+                        <b>View Full Profile</b>
                     </button>
                 </div>
             </div>
+
+
         </div>
     );
 }

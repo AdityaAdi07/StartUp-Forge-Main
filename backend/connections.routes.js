@@ -45,17 +45,34 @@ router.post('/request', async (req, res) => {
  * GET /connections/requests/incoming
  * Headers: x-user-id, x-user-role
  */
+/**
+ * Get Incoming Requests (Notifications)
+ * GET /connections/requests/incoming
+ * Headers: x-user-id, x-user-role
+ */
 router.get('/requests/incoming', async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(400).json({ error: 'Missing x-user-id header' });
 
     try {
-        const result = await pool.query(`
-      SELECT * FROM connection_requests 
-      WHERE receiver_id = $1 AND status = 'PENDING'
-      ORDER BY created_at DESC
-    `, [userId]);
+        const query = `
+            SELECT 
+                cr.*,
+                COALESCE(f.name, i.name) as sender_name,
+                COALESCE(f.company, i.firm_name) as sender_headline,
+                CASE 
+                    WHEN cr.sender_role = 'FOUNDER' THEN 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                    WHEN cr.sender_role = 'INVESTOR' THEN 'https://cdn-icons-png.flaticon.com/512/147/147144.png'
+                    ELSE 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+                END as sender_avatar
+            FROM connection_requests cr
+            LEFT JOIN founders f ON cr.sender_id = f.id AND cr.sender_role = 'FOUNDER'
+            LEFT JOIN investors i ON cr.sender_id = i.id AND cr.sender_role = 'INVESTOR'
+            WHERE cr.receiver_id = $1 AND cr.status = 'PENDING'
+            ORDER BY cr.created_at DESC
+        `;
 
+        const result = await pool.query(query, [userId]);
         res.json(result.rows);
     } catch (err) {
         console.error(err);

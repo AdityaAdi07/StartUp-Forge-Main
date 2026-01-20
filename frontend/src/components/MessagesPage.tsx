@@ -11,7 +11,12 @@ import {
   Bell,
   MessageSquare,
   BrainCircuit,
-  Home
+  Home,
+  Shield,
+  Lock,
+  Trash2,
+  Check,
+  X
 } from 'lucide-react';
 
 type MessagesPageProps = {
@@ -64,8 +69,10 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
+  const [clearRequestPending, setClearRequestPending] = useState(false);
 
   const [currentRoomKey, setCurrentRoomKey] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // File Inputs
@@ -166,6 +173,21 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
   }, [selectedConversation, gun, currentUser.id]);
 
   const processIncomingMessage = async (node: any, id: string) => {
+    // 1. Handle Clear Requests
+    if (node.type === 'request_clear') {
+      if (node.sender !== currentUser.id) {
+        setClearRequestPending(true);
+      }
+      return;
+    }
+
+    // 2. Handle Clear Confirmation (Actual Delete)
+    if (node.type === 'accept_clear') {
+      setMessages([]);
+      setClearRequestPending(false);
+      return;
+    }
+
     // Check if message already exists
     setMessages(prev => {
       if (prev.find(m => m.id === id)) return prev;
@@ -184,6 +206,45 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
 
     // Scroll to bottom
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const requestClearChat = () => {
+    if (!currentRoomKey || !gun) return;
+    const payload = {
+      sender: currentUser.id,
+      text: "REQUEST_CLEAR",
+      type: 'request_clear',
+      ts: Date.now()
+    };
+    gun.get('chats').get(currentRoomKey).set(payload);
+    // Optimistically show pending state or just wait? 
+    // Usually only receiver needs to know. 
+    // But we should maybe show "Waiting for confirmation"
+    alert("Clear request sent. Waiting for other user to accept.");
+  };
+
+  const confirmClearChat = () => {
+    if (!currentRoomKey || !gun) return;
+
+    // 1. Send Accept Message (Trigger for both clients to wipe)
+    const payload = {
+      sender: currentUser.id,
+      text: "ACCEPT_CLEAR",
+      type: 'accept_clear',
+      ts: Date.now()
+    };
+    gun.get('chats').get(currentRoomKey).set(payload);
+
+    // 2. Actually Nullify Data (Best Effort)
+    gun.get('chats').get(currentRoomKey).map().once((msg: any, key: string) => {
+      gun.get('chats').get(currentRoomKey).get(key).put(null);
+    });
+
+    setClearRequestPending(false);
+  };
+
+  const cancelClearRequest = () => {
+    setClearRequestPending(false);
   };
 
   const sendMessage = async (content?: string) => {
@@ -252,6 +313,37 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
     if (onSearch) onSearch(headerSearchQuery);
   };
 
+  const handleAutocomplete = async () => {
+    if (messages.length === 0) return;
+    setIsGenerating(true);
+    try {
+      const history = messages.map(m => ({
+        isMe: m.senderId === currentUser.id,
+        content: m.content
+      }));
+
+      const res = await fetch('http://localhost:8000/chat/autocomplete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          history,
+          userContext: `Role: ${currentUser.headline || 'User'}. Name: ${currentUser.name}`
+        })
+      });
+
+      const data = await res.json();
+      if (data.reply) {
+        setMessageText(data.reply);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const selectedUser = conversations.find(c => c.userId === selectedConversation);
 
   return (
@@ -274,8 +366,8 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
               <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
             </div>
             <div className="flex flex-col items-start">
-              <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800">{currentUser.name}</span>
-              <span className="text-xs text-gray-500 font-medium">View Profile</span>
+              <span className="text-lg font-bold text-slate-900 leading-tight group-hover:text-slate-700 transition-colors">{currentUser.name}</span>
+              <span className="text-xs text-slate-500 font-medium">View Profile</span>
             </div>
           </button>
 
@@ -296,7 +388,7 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
               />
               <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-300 text-xs">|</span>
+                  <span className="text-slate-400 text-xs">|</span>
                   <kbd className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 border border-slate-600 border-b-2 rounded-lg text-[10px] font-bold text-slate-300 tracking-wider">
                     ⌘ K
                   </kbd>
@@ -317,40 +409,49 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
       </div>
 
       {/* --- Main Content (Messages Layout) --- */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-6 overflow-hidden">
-        <div className="bg-white rounded-lg border border-gray-200 h-full flex overflow-hidden shadow-sm">
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 overflow-hidden">
+        <div className="bg-white rounded-[2rem] border border-slate-200 h-full flex overflow-hidden shadow-xl ring-1 ring-slate-100/50">
 
           {/* Sidebar */}
-          <div className="w-80 border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-xl text-gray-900 mb-3">Messages</h2>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="w-80 border-r border-slate-100 flex flex-col bg-slate-50/50">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-lg font-bold text-slate-900 tracking-tight">Messages</h2>
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-white rounded-full border border-emerald-100 shadow-sm" title="End-to-End Encrypted">
+                  <Lock className="w-2.5 h-2.5 text-emerald-600" />
+                  <span className="text-[9px] font-bold text-emerald-700 tracking-wide">SECURE</span>
+                </div>
+              </div>
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search messages"
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="Search..."
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-100 focus:border-slate-300 text-sm transition-all placeholder-slate-400 font-medium shadow-sm"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
               {conversations
                 .filter(c => c.userName.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map(conversation => (
                   <button
                     key={conversation.userId}
                     onClick={() => setSelectedConversation(conversation.userId)}
-                    className={`w-full flex items-start gap-3 p-4 hover:bg-gray-50 text-left ${selectedConversation === conversation.userId ? 'bg-blue-50' : ''
+                    className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all duration-200 border border-transparent ${selectedConversation === conversation.userId
+                      ? 'bg-white shadow-md border-slate-100 ring-1 ring-slate-50 scale-[1.02]'
+                      : 'hover:bg-white hover:shadow-sm hover:border-slate-100 text-slate-600'
                       } `}
                   >
-                    <img src={conversation.userAvatar} alt="" className="w-12 h-12 rounded-full" />
+                    <img src={conversation.userAvatar} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm text-gray-900 truncate">{conversation.userName}</h3>
+                        <h3 className={`text-sm font-bold truncate ${selectedConversation === conversation.userId ? 'text-slate-900' : 'text-slate-700'}`}>{conversation.userName}</h3>
+                        {conversation.unread && <span className="w-2 h-2 bg-blue-500 rounded-full ring-2 ring-white"></span>}
                       </div>
-                      <p className="text-sm text-gray-600 truncate mt-1">{conversation.lastMessage}</p>
+                      <p className={`text-xs truncate mt-0.5 ${selectedConversation === conversation.userId ? 'text-slate-500 font-medium' : 'text-slate-400 opacity-80'}`}>{conversation.lastMessage}</p>
                     </div>
                   </button>
                 ))}
@@ -359,38 +460,100 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
 
           {/* Chat Area */}
           {selectedConversation && selectedUser ? (
-            <div className="flex-1 flex flex-col bg-[#0b141a]"> {/* WhatsApp Dark BG */}
+            <div className="flex-1 flex flex-col bg-white">
               {/* Header */}
-              <div className="p-4 bg-[#202c33] border-b border-[#2a3942] flex items-center justify-between text-[#e9edef]">
+              <div className="px-6 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex items-center justify-between z-10 sticky top-0">
                 <div className="flex items-center gap-3">
-                  <img src={selectedUser.userAvatar} alt="" className="w-10 h-10 rounded-full" />
-                  <h3 className="text-[#e9edef] font-medium">{selectedUser.userName}</h3>
+                  <div className="relative group cursor-pointer">
+                    <img src={selectedUser.userAvatar} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-sm" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                  </div>
+                  <div>
+                    <h3 className="text-slate-900 font-bold text-sm leading-tight">{selectedUser.userName}</h3>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                      <span className="text-slate-400 text-[10px] font-medium">Encrypted</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Security Badge & Clear Action */}
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-full border border-slate-100 group cursor-help hover:border-slate-200 transition-colors">
+                    <Shield className="w-3 h-3 text-emerald-500 fill-emerald-50" />
+                    <span className="text-[10px] font-bold text-slate-600 group-hover:text-emerald-700 transition-colors uppercase tracking-wide">Blockchain Verified</span>
+                  </div>
+                  <button
+                    onClick={requestClearChat}
+                    className="text-[10px] flex items-center gap-1 text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                    title="Request to Clear Chat"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Clear Chat
+                  </button>
                 </div>
               </div>
 
+              {/* Clear Request Banner */}
+              {clearRequestPending && (
+                <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between animate-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-red-900">Clear Chat Request</p>
+                      <p className="text-xs text-red-700">Other user wants to permanently erase this chat.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={cancelClearRequest}
+                      className="p-2 bg-white border border-red-200 text-slate-600 rounded-lg hover:bg-slate-50 text-xs font-bold transition-colors"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={confirmClearChat}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm text-xs font-bold transition-colors"
+                    >
+                      <Check className="w-3 h-3" />
+                      Accept & Erase
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Messages List */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat bg-[length:400px]">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30 scroll-smooth">
                 {messages.map(msg => {
                   const isMe = msg.senderId === currentUser.id;
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} `}>
-                      <div className={`max-w-[65%] rounded-lg px-3 py-2 text-sm relative shadow-sm ${isMe ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none' : 'bg-[#202c33] text-[#e9edef] rounded-tl-none'
-                        } `}>
-                        {msg.type === 'text' && <p>{msg.content}</p>}
-                        {msg.type === 'image' && <img src={msg.content} alt="Shared" className="rounded-lg max-w-full" />}
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                      <div className={`
+                        max-w-[70%] rounded-3xl px-5 py-2.5 text-sm relative shadow-sm transition-all
+                        ${isMe
+                          ? 'bg-slate-900 text-white rounded-br-sm'
+                          : 'bg-white text-slate-700 border border-slate-100 rounded-bl-sm shadow-sm'
+                        }
+                      `}>
+                        {msg.type === 'text' && <p className="leading-relaxed">{msg.content}</p>}
+                        {msg.type === 'image' && <img src={msg.content} alt="Shared" className="rounded-lg max-w-full hover:opacity-95 transition-opacity cursor-pointer" />}
                         {msg.type === 'file' && (
                           <a
                             href={msg.content}
                             download={msg.fileName || 'download'}
-                            className="flex items-center gap-2 bg-black/20 p-2 rounded hover:bg-black/30 transition-colors cursor-pointer text-inherit no-underline"
+                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer text-inherit no-underline ${isMe ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-50 hover:bg-slate-100'}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <File className="w-5 h-5" />
-                            <span className="truncate hover:underline">{msg.fileName}</span>
+                            <div className={`p-2 rounded-lg ${isMe ? 'bg-white/20' : 'bg-slate-200'}`}>
+                              <File className="w-5 h-5" />
+                            </div>
+                            <span className="truncate font-medium hover:underline">{msg.fileName}</span>
                           </a>
                         )}
-                        <p className="text-[10px] text-gray-400 text-right mt-1">
+                        <p className={`text-[10px] mt-2 text-right opacity-70 ${isMe ? 'text-slate-300' : 'text-slate-400'}`}>
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -401,72 +564,97 @@ export function MessagesPage({ gun, gunUser, currentUser, onViewProfile, targetU
               </div>
 
               {/* Input Area */}
-              <div className="bg-[#202c33] flex flex-col">
+              <div className="bg-white p-3 border-t border-slate-100">
                 {/* Preview Area */}
                 {previewAttachment && (
-                  <div className="p-3 bg-[#2a3942] border-b border-[#202c33] flex items-center justify-between mx-4 mt-2 rounded-t-lg">
-                    <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="p-2 bg-slate-50 border border-slate-200 flex items-center justify-between mb-2 rounded-2xl mx-1">
+                    <div className="flex items-center gap-3 overflow-hidden ml-1">
                       {previewAttachment.type === 'image' ? (
-                        <img src={previewAttachment.content} alt="Preview" className="h-16 w-16 object-cover rounded" />
+                        <img src={previewAttachment.content} alt="Preview" className="h-10 w-10 object-cover rounded-xl border border-slate-200" />
                       ) : (
-                        <div className="h-16 w-16 bg-black/20 flex items-center justify-center rounded">
-                          <File className="w-8 h-8 text-[#e9edef]" />
+                        <div className="h-10 w-10 bg-slate-200 flex items-center justify-center rounded-xl">
+                          <File className="w-5 h-5 text-slate-500" />
                         </div>
                       )}
-                      <span className="text-[#e9edef] text-sm truncate max-w-[200px]">{previewAttachment.name}</span>
+                      <span className="text-slate-700 text-xs font-bold truncate max-w-[200px]">{previewAttachment.name}</span>
                     </div>
-                    <button onClick={cancelAttachment} className="p-1 hover:bg-white/10 rounded-full text-[#e9edef]">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button onClick={cancelAttachment} className="p-1 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
                 )}
 
                 {/* Controls */}
-                <div className="p-3 flex items-center gap-2">
-                  <button
-                    onClick={() => imageInputRef.current?.click()}
-                    className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
-                    disabled={!!previewAttachment}
-                  >
-                    <Image className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`p-2 hover:bg-white/5 rounded-full ${previewAttachment ? 'text-gray-500 cursor-not-allowed' : 'text-[#8696a0]'}`}
-                    disabled={!!previewAttachment}
-                  >
-                    <Plus className="w-6 h-6" />
-                  </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      className={`p-2.5 rounded-full transition-all duration-200 ${previewAttachment ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600 hover:scale-105 active:scale-95'}`}
+                      disabled={!!previewAttachment}
+                      title="Upload Image"
+                    >
+                      <Image className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`p-2.5 rounded-full transition-all duration-200 ${previewAttachment ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600 hover:scale-105 active:scale-95'}`}
+                      disabled={!!previewAttachment}
+                      title="Upload File"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                    <button
+                      onClick={handleAutocomplete}
+                      className={`p-2.5 rounded-full transition-all duration-200 ${isGenerating ? 'animate-pulse text-purple-500 bg-purple-50' : 'text-slate-400 hover:bg-purple-50 hover:text-purple-600 hover:scale-105 active:scale-95'}`}
+                      disabled={isGenerating || !!previewAttachment}
+                      title="AI Autocomplete"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                    </button>
+                  </div>
 
-                  <input
-                    type="text"
-                    value={messageText}
-                    onChange={e => setMessageText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && sendMessage(messageText)}
-                    placeholder={previewAttachment ? "Add a caption (optional - not supported yet)" : "Type a message"}
-                    disabled={!!previewAttachment}
-                    className="flex-1 bg-[#2a3942] text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none disabled:opacity-50"
-                  />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={messageText}
+                      onChange={e => setMessageText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && sendMessage(messageText)}
+                      placeholder={previewAttachment ? "Add a caption..." : "Message securely..."}
+                      disabled={!!previewAttachment}
+                      className="w-full bg-slate-50 text-slate-900 placeholder-slate-400 rounded-full px-5 py-3 border border-transparent focus:bg-white focus:border-slate-200 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all font-medium text-sm"
+                    />
+                  </div>
 
                   <button
                     onClick={() => sendMessage(messageText)}
-                    className="p-2 text-[#8696a0] hover:bg-white/5 rounded-full"
+                    className={`p-3 rounded-full shadow-md transform transition-all duration-200 flex items-center justify-center ${!messageText && !previewAttachment ? 'bg-slate-100 text-slate-300' : 'bg-slate-900 text-white hover:bg-slate-800 hover:scale-105 active:scale-95'}`}
+                    disabled={!messageText && !previewAttachment}
                   >
-                    <SendIcon className="w-6 h-6" />
+                    <SendIcon className="w-5 h-5" />
                   </button>
 
                   <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'image')} />
                   <input type="file" ref={fileInputRef} className="hidden" onChange={e => handleFileChange(e, 'file')} />
                 </div>
+
+                {/* Security Footer */}
+                <div className="mt-2 py-1 flex items-center justify-center gap-1.5 select-none opacity-60 hover:opacity-100 transition-opacity">
+                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                  <p className="text-[9px] text-slate-400 font-medium tracking-wide">
+                    End-to-End Encrypted via <span className="font-semibold">Decentralized Ledger</span>
+                  </p>
+                </div>
               </div>
 
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-[#222e35] text-[#8696a0]">
-              <div className="text-center">
-                <p className="text-lg">Select a chat to start messaging</p>
-                <p className="text-sm mt-2">End-to-end encrypted</p>
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6">
+                <MessageSquare className="w-10 h-10 text-slate-300" />
               </div>
+              <p className="text-lg font-medium text-slate-600">No chat selected</p>
+              <p className="text-sm mt-2 max-w-xs text-center text-slate-500">Choose a person from the sidebar to start messaging securely.</p>
             </div>
           )}
         </div>

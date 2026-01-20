@@ -18,3 +18,4 @@ export default defineConfig({
     }
   }
 });
+// Trigger HMR update - Force Restart 2

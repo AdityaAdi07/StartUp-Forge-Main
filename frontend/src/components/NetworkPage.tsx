@@ -136,37 +136,48 @@ export function NetworkPage({
   // --- Render Helpers ---
 
   const renderTopProfiles = (users: AppUser[]) => (
-    <div className="flex flex-row gap-6 overflow-x-auto pb-4 custom-scrollbar">
+    <div className="flex flex-row gap-4 overflow-x-auto pb-6 pt-2 custom-scrollbar px-1">
       {users.slice(0, 5).map((user) => (
-        <div key={user.id} className="flex flex-col items-center min-w-[80px] group cursor-pointer" onClick={() => onViewProfile(user.id)}>
-          <div className="relative mb-2">
+        <div key={user.id} className="flex flex-col items-center min-w-[100px] p-3 rounded-2xl hover:bg-white hover:shadow-lg transition-all duration-300 cursor-pointer group border border-transparent hover:border-slate-100 relative" onClick={() => onViewProfile(user.id)}>
+          <div className="relative mb-3 transform group-hover:scale-105 transition-transform duration-300">
+            <div className="absolute inset-0 bg-indigo-500 rounded-full blur-md opacity-0 group-hover:opacity-20 transition-opacity"></div>
             <img
               src={user.avatar}
               alt={user.name}
-              className="w-14 h-14 rounded-full border-2 border-white shadow-sm group-hover:border-slate-300 transition-all object-cover"
+              className="w-16 h-16 rounded-full border-[3px] border-white shadow-md object-cover relative z-10"
             />
             {connectedUsers.has(user.id) && (
-              <div className="absolute bottom-0 right-0 bg-green-500 border-2 border-white rounded-full p-0.5">
-                <Check className="w-2 h-2 text-white" />
+              <div className="absolute bottom-1 right-0 bg-emerald-500 border-[3px] border-white rounded-full p-0.5 z-20 shadow-sm">
+                <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
               </div>
             )}
           </div>
-          <span className="text-xs font-bold text-slate-800 text-center leading-tight line-clamp-2 w-20">{user.name}</span>
-          <span className="text-[10px] text-slate-500 text-center truncate w-20">{user.headline}</span>
+          <span className="text-sm font-bold text-slate-800 text-center leading-tight line-clamp-1 w-full group-hover:text-indigo-600 transition-colors">{user.name}</span>
+          <span className="text-[10px] font-semibold text-slate-400 text-center truncate w-full mt-1 bg-slate-50 px-2 py-0.5 rounded-full">{user.headline}</span>
         </div>
       ))}
     </div>
   );
 
   const renderUserCard = (user: AppUser) => (
-    <div key={user.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-soft transition-all hover:border-slate-300 group">
-      <div className="flex items-start justify-between gap-4">
+    <div key={user.id} className="bg-white border border-slate-200/60 rounded-2xl p-4 hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 hover:border-indigo-100 group hover:-translate-y-1">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-4 flex-1 min-w-0" onClick={() => onViewProfile(user.id)}>
-          <img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-full object-cover border border-gray-100 cursor-pointer" />
-          <div className="flex-1 min-w-0 py-1">
-            <h4 className="font-bold text-slate-900 text-base truncate group-hover:text-blue-600 transition-colors cursor-pointer">{user.name}</h4>
-            <p className="text-sm text-slate-500 line-clamp-1 mt-0.5">{user.headline}</p>
-            <p className="text-xs text-gray-400 mt-1.5">{user.connections} connections</p>
+          <div className="relative">
+            <img src={user.avatar} alt={user.name} className="w-14 h-14 rounded-2xl object-cover border border-slate-100 shadow-sm group-hover:shadow-md transition-all cursor-pointer" />
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm">
+              <div className={`w-2.5 h-2.5 rounded-full ${connectedUsers.has(user.id) ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0 py-0.5">
+            <h4 className="font-bold text-slate-800 text-[15px] truncate group-hover:text-indigo-600 transition-colors cursor-pointer tracking-tight">{user.name}</h4>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs font-medium text-slate-500 line-clamp-1 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">{user.headline}</span>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              <Users className="w-3 h-3 text-slate-400" />
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{user.connections} connections</p>
+            </div>
           </div>
         </div>
         <button
@@ -179,11 +190,11 @@ export function NetworkPage({
             }
           }}
           disabled={connectedUsers.has(user.id) || (user as any).isConnected}
-          className={`p-2.5 rounded-full transition-all flex-shrink-0 ${connectedUsers.has(user.id) || (user as any).isConnected
-            ? 'bg-green-50 text-green-600'
+          className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all shadow-sm flex-shrink-0 ${connectedUsers.has(user.id) || (user as any).isConnected
+            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
             : followedUsers.has(user.id)
-              ? 'bg-gray-50 text-gray-400'
-              : 'bg-slate-50 text-slate-600 hover:bg-slate-900 hover:text-white'
+              ? 'bg-slate-50 text-slate-400 border border-slate-200'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-md'
             }`}
         >
           {connectedUsers.has(user.id) || (user as any).isConnected ? <UserCheck className="w-5 h-5" /> : followedUsers.has(user.id) ? <Check className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
@@ -212,8 +223,8 @@ export function NetworkPage({
               <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
             </div>
             <div className="flex flex-col items-start">
-              <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800">{currentUser.name}</span>
-              <span className="text-xs text-gray-500 font-medium">View Profile</span>
+              <span className="text-lg font-bold text-gray-900 leading-tight group-hover:text-slate-800"><b>{currentUser.name}</b></span>
+              <span className="text-xs text-gray-500 font-medium"><b>View Profile</b></span>
             </div>
           </button>
 
@@ -255,28 +266,32 @@ export function NetworkPage({
       </div>
 
       {/* --- Main Network Content --- */}
-      <div className="flex-1 overflow-y-auto w-full max-w-[1600px] mx-auto p-6" style={{ height: 'calc(100vh - 6rem)' }}>
+      <div className="flex-1 overflow-y-auto w-full max-w-[1700px] mx-auto p-8" style={{ height: 'calc(100vh - 6rem)' }}>
 
         {/* Invitations Section (If any) */}
         {requests.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-              <h2 className="text-lg font-bold text-slate-900">Invitations</h2>
-              <span className="text-slate-500 text-sm font-medium">{requests.length} pending</span>
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 mb-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-900 rounded-xl text-white"><UserPlus className="w-5 h-5" /></div>
+                <h2 className="text-xl font-bold text-slate-900">Connections Pending</h2>
+              </div>
+              <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border border-indigo-200">{requests.length} New</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 relative z-10">
               {requests.map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <img src={request.userAvatar} className="w-12 h-12 rounded-full" />
+                <div key={request.id} className="flex items-center justify-between p-4 bg-slate-50/80 border border-slate-100 rounded-2xl hover:shadow-md transition-all hover:bg-white group">
+                  <div className="flex items-center gap-4">
+                    <img src={request.userAvatar} className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
                     <div>
-                      <h4 className="font-bold text-slate-900 text-sm">{request.userName}</h4>
-                      <p className="text-xs text-slate-500">{request.userHeadline}</p>
+                      <h4 className="font-bold text-slate-900 text-base">{request.userName}</h4>
+                      <p className="text-xs text-slate-500 font-medium bg-white px-2 py-0.5 rounded-md inline-block shadow-sm mt-1">{request.userHeadline}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => onRejectRequest(request.id)} className="p-1.5 text-slate-400 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
-                    <button onClick={() => handleAcceptInternal(request.id)} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><Check className="w-5 h-5" /></button>
+                    <button onClick={() => onRejectRequest(request.id)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-100 hover:bg-red-50 rounded-xl transition-colors shadow-sm"><X className="w-4 h-4" /></button>
+                    <button onClick={() => handleAcceptInternal(request.id)} className="w-9 h-9 flex items-center justify-center bg-slate-900 text-white hover:bg-indigo-600 rounded-xl transition-all shadow-md hover:scale-105"><Check className="w-4 h-4" /></button>
                   </div>
                 </div>
               ))}
@@ -285,26 +300,35 @@ export function NetworkPage({
         )}
 
         {/* 2 Halves Layout */}
-        <div className="flex flex-row gap-6 h-full">
+        <div className="flex flex-row gap-8 h-full">
 
           {/* LEFT: Founder Connections */}
-          <div className="flex-1 flex flex-col gap-6 h-full min-w-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center gap-2 bg-white">
-                <div className="p-2 bg-indigo-50 rounded-lg"><Users className="w-5 h-5 text-indigo-600" /></div>
-                <h3 className="text-lg font-bold text-slate-900">Founder Connections</h3>
+          <div className="flex-1 flex flex-col gap-6 h-full min-w-0 animate-in slide-in-from-left-4 duration-500 fade-in">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex-1 flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 bg-white/50 backdrop-blur-sm sticky top-0 z-20">
+                <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center border border-indigo-100 shadow-sm"><Users className="w-5 h-5 text-indigo-600" /></div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight"><b>Founder Network</b></h3>
+                  <p className="text-xs text-slate-500 font-medium"><b>Connect with fellow visionaries</b></p>
+                </div>
               </div>
 
-              <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
                 {/* Top 5 Small Profile Container */}
-                <div className="mb-6">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Top 5 Connected</h4>
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest"><b>Recently Active</b></h4>
+                    <span className="h-px flex-1 bg-slate-200 ml-4"></span>
+                  </div>
                   {renderTopProfiles(realFounders)}
                 </div>
 
                 {/* All Founders Cards */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">All Founders</h4>
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest"><b>Discover Founders</b></h4>
+                    <span className="h-px flex-1 bg-slate-200 ml-4"></span>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     {realFounders.map(renderUserCard)}
                   </div>
@@ -314,23 +338,32 @@ export function NetworkPage({
           </div>
 
           {/* RIGHT: Investor Connections */}
-          <div className="flex-1 flex flex-col gap-6 h-full min-w-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center gap-2 bg-white">
-                <div className="p-2 bg-emerald-50 rounded-lg"><TrendingUp className="w-5 h-5 text-emerald-600" /></div>
-                <h3 className="text-lg font-bold text-slate-900">Investor Connections</h3>
+          <div className="flex-1 flex flex-col gap-6 h-full min-w-0 animate-in slide-in-from-right-4 duration-500 fade-in">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex-1 flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 bg-white/50 backdrop-blur-sm sticky top-0 z-20">
+                <div className="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100 shadow-sm"><TrendingUp className="w-5 h-5 text-emerald-600" /></div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight"><b>Investor Network</b></h3>
+                  <p className="text-xs text-slate-500 font-medium"><b>Find your next round</b></p>
+                </div>
               </div>
 
-              <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
                 {/* Top 5 Small Profile Container */}
-                <div className="mb-6">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Top 5 Investors</h4>
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest"><b>Top VCs & Angels</b></h4>
+                    <span className="h-px flex-1 bg-slate-200 ml-4"></span>
+                  </div>
                   {renderTopProfiles(realInvestors)}
                 </div>
 
                 {/* All Investors Cards */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">All Investors</h4>
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest"><b>Explore Investors</b></h4>
+                    <span className="h-px flex-1 bg-slate-200 ml-4"></span>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     {realInvestors.map(renderUserCard)}
                   </div>

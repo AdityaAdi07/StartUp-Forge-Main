@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Refresh
 import Gun from 'gun/gun';
 import 'gun/sea';
 import 'gun/axe';
@@ -13,6 +13,7 @@ import { NotificationsPage } from './components/NotificationsPage';
 import { JobsPage } from './components/JobsPage';
 import { CreatePostModal } from './components/CreatePostModal';
 import ConflictReportPage from './components/ConflictReportPage';
+import { LandingPage } from './components/LandingPage';
 import { Toaster } from './components/ui/sonner';
 
 // Import Data
@@ -38,6 +39,12 @@ export type User = {
   linkedin?: string;
   isActive?: boolean;
   company?: string;
+  // Prediction Data
+  valuation?: number;
+  fundingYear?: number;
+  fundingRound?: string;
+  competitors?: string[];
+  umbrella?: string[];
 };
 
 export type Comment = {
@@ -97,98 +104,7 @@ export type ConnectionRequest = {
   message?: string;
 };
 
-// --- Login Component ---
-const LoginScreen = ({ onLogin }: { onLogin: (id: string, role: string, name: string) => void }) => {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('investor'); // Default to investor as per user request context
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleLogin = async () => {
-    if (!name) {
-      setError("Please enter your name");
-      return;
-    }
-    setLoading(true);
-    setError('');
-
-    try {
-      // Call Backend Login API to resolve Name -> ID
-      const res = await fetch('http://127.0.0.1:3000/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, role })
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        // Success: Log in with the resolved ID and Name
-        onLogin(data.userId.toString(), role, data.name);
-      } else {
-        setError(data.error || "Login failed. Please check your spelling.");
-      }
-    } catch (err) {
-      console.error("Login Check Failed", err);
-      // Fallback for demo if backend is offline, but try to enforce real login
-      setError("Server connection failed. Ensure Backend is running.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center text-white" style={{ backgroundColor: '#0f172a' }}>
-      <div className="p-8 rounded-xl w-96 shadow-2xl border border-slate-600" style={{ backgroundColor: '#1e293b' }}>
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2">Startup Forge</h1>
-          <p className="text-gray-400 text-sm">Secure Decentralized Chat</p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1 text-gray-300">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full rounded p-2 text-white outline-none focus:border-[#00a884] border border-slate-600"
-              style={{ backgroundColor: '#0f172a' }}
-              placeholder="e.g. Mark Suster"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm mb-1 text-gray-300">Role</label>
-            <select
-              value={role}
-              onChange={e => setRole(e.target.value)}
-              className="w-full rounded p-2 text-white outline-none focus:border-[#00a884] border border-slate-600"
-              style={{ backgroundColor: '#0f172a' }}
-            >
-              <option value="investor">Investor</option>
-              <option value="founder">Founder</option>
-            </select>
-          </div>
-
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-[#00a884] hover:bg-[#008f6f] text-[#0f172a] font-bold py-2 rounded mt-4 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Authenticating...' : 'Login'}
-          </button>
-
-          <div className="mt-4 text-xs text-gray-500 text-center">
-            <p>Try: "Mark Suster" (Investor) or "1upHealth" (Founder)</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // --- Main App ---
 function App() {
@@ -728,13 +644,13 @@ function App() {
   };
 
   if (!isLoggedIn) {
-    return <LoginScreen onLogin={handleAppLogin} />;
+    return <LandingPage onLogin={handleAppLogin} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
-      {currentPage !== 'home' && currentPage !== 'network' && currentPage !== 'notifications' && currentPage !== 'messages' && currentPage !== 'conflict-report' && (
+      {currentPage !== 'home' && currentPage !== 'network' && currentPage !== 'notifications' && currentPage !== 'messages' && currentPage !== 'conflict-report' && currentPage !== 'profile' && (
         <NavigationBar
           canGoBack={historyIndex > 0}
           canGoForward={historyIndex < history.length - 1}
@@ -794,6 +710,20 @@ function App() {
           onFollowUser={() => handleSendConnectionRequest(viewingUserId)}
           userPosts={posts.filter(p => p.userId === viewingUserId)}
           onViewConflictReport={() => navigateTo('conflict-report')}
+          currentUser={currentUser}
+          onNavigate={(page, id) => {
+            if (page === 'home') navigateTo('home');
+            else if (page === 'profile') navigateTo('profile', id || 'current-user');
+            else if (page === 'network') navigateTo('network');
+            else if (page === 'notifications') navigateTo('notifications');
+            else if (page === 'messages') navigateTo('messages');
+            else if (page === 'conflict-report') navigateTo('conflict-report');
+            else navigateTo(page as any);
+          }}
+          onSearch={handleSearch}
+          onQueryChange={handleQueryChange}
+          ragResults={ragResults}
+          isSearching={isSearching}
         />
       )}
 

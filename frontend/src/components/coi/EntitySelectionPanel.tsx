@@ -57,14 +57,14 @@ const EntitySelectionPanel = ({
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 shadow-md shadow-slate-900/20">
           <Search className="h-5 w-5 text-white" />
         </div>
-        <h3 className="text-xl font-extrabold text-slate-900">Entity Selection</h3>
+        <h3 className="text-xl font-extrabold text-slate-900"><b>Entity Selection</b></h3>
       </div>
 
       <div className="flex-1 flex flex-col justify-between gap-8 px-2 pb-2">
         <div className={`grid gap-7 ${compact ? 'grid-cols-1' : 'md:grid-cols-3'}`}>
           <div className="space-y-3 group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
-              Entity Type
+            <label className="text-s font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
+              <b>Entity Type</b>
             </label>
             <Select value={entityType} onValueChange={setEntityType}>
               <SelectTrigger className="h-14 bg-slate-50 border-slate-200 rounded-3xl px-5 font-bold text-slate-900 shadow-sm focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 hover:border-slate-300 transition-all">
@@ -74,19 +74,19 @@ const EntitySelectionPanel = ({
                 <SelectItem value="investor" className="rounded-xl focus:bg-slate-50 my-1 font-bold text-slate-700 cursor-pointer px-4 py-3">
                   <span className="flex items-center gap-3">
                     <Users className="h-4 w-4 text-slate-400" />
-                    Investor
+                    <b>Investor</b>
                   </span>
                 </SelectItem>
                 <SelectItem value="founder" className="rounded-xl focus:bg-slate-50 my-1 font-bold text-slate-700 cursor-pointer px-4 py-3">
                   <span className="flex items-center gap-3">
                     <User className="h-4 w-4 text-slate-400" />
-                    Founder
+                    <b>Founder</b>
                   </span>
                 </SelectItem>
                 <SelectItem value="company" className="rounded-xl focus:bg-slate-50 my-1 font-bold text-slate-700 cursor-pointer px-4 py-3">
                   <span className="flex items-center gap-3">
                     <Building2 className="h-4 w-4 text-slate-400" />
-                    Company
+                    <b>Company</b>
                   </span>
                 </SelectItem>
               </SelectContent>
@@ -94,8 +94,8 @@ const EntitySelectionPanel = ({
           </div>
 
           <div className="space-y-3 group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
-              Select Entity
+            <label className="text-s font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
+              <b>Select Entity</b>
             </label>
             <Select
               value={selectedEntity}
@@ -119,8 +119,8 @@ const EntitySelectionPanel = ({
           </div>
 
           <div className="space-y-3 group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
-              Target Company <span className="opacity-50 font-medium normal-case tracking-normal ml-1 text-[10px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-400">(Optional)</span>
+            <label className="text-s font-bold text-slate-500 uppercase tracking-wider ml-2 group-hover:text-primary transition-colors">
+              <b>Target Company</b> <span className="opacity-50 font-medium normal-case tracking-normal ml-1 text-[10px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-400">(Optional)</span>
             </label>
             <Select value={targetCompany} onValueChange={setTargetCompany}>
               <SelectTrigger className="h-14 bg-slate-50 border-slate-200 rounded-3xl px-5 font-bold text-slate-900 shadow-sm focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 hover:border-slate-300 transition-all">
@@ -155,8 +155,8 @@ const EntitySelectionPanel = ({
               </>
             ) : (
               <>
-                <Sparkles className="h-5 w-5 mr-2 text-indigo-400" />
-                Run Conflict Check
+                <Sparkles className="h-20 w-20 mr-2 text-indigo-400" />
+                <b>Run Conflict Check</b>
               </>
             )}
           </Button>

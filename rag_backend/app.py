@@ -69,3 +69,15 @@ def search_investors(req: QueryRequest):
 def chat_endpoint(req: QueryRequest):
     answer = chat_with_rag(req.query)
     return {"response": answer}
+
+# ---------- Autocomplete Endpoint ----------
+class AutocompleteRequest(BaseModel):
+    history: list # List of objects
+    userContext: str = "Standard User"
+
+from rag import generate_chat_reply
+
+@app.post("/chat/autocomplete")
+def chat_autocomplete(req: AutocompleteRequest):
+    reply = generate_chat_reply(req.history, req.userContext)
+    return {"reply": reply}

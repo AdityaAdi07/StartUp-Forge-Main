@@ -174,3 +174,58 @@ def chat_with_rag(query: str):
         return response.choices[0].message.content
     except Exception as e:
         return f"Error contacting AI Assistant: {str(e)}"
+
+
+def generate_chat_reply(history: list, user_context: str):
+    """
+    history: List of {"sender": "Me"|"Them", "content": "..."}
+    user_context: String describing the current user (e.g. "Role: Founder. Name: Alex Rivera")
+    """
+    
+    # 1. Retrieve MY details (The User's Data) via RAG
+    # We search for the user's own context to get their company info, valuation, etc.
+    my_data_query = f"Details about {user_context}"
+    my_data_res = query_founders(my_data_query, k=1) # Get top 1 match for myself
+    
+    my_facts = "No specific data found."
+    if my_data_res["documents"] and my_data_res["documents"][0]:
+        my_facts = my_data_res["documents"][0][0] # Primary match string
+
+    # 1. Format History
+    conversation_text = ""
+    for msg in history[-10:]: # Look at last 10 messages
+        sender = "Me" if msg.get("isMe") else "Them"
+        conversation_text += f"{sender}: {msg.get('content')}\n"
+
+    # 2. Build Prompt
+    system_prompt = (
+        "You are an intelligent executive assistant for a Startup Founder. "
+        "Your goal is to draft a clean, crisp, and high-impact reply based on the conversation. "
+        "STRICT RULES:\n"
+        "1. USE DATA: You have access to the user's company details below ('My Company Data'). Use these EXACT numbers (Valuation, Revenue, Growth). "
+        "   NEVER use placeholders like '[Insert Value]' or '[X]'. If the data is missing, omit that specific point rather than guessing.\n"
+        "2. BE CRISP: Use short sentences. Use bullet points for stats/lists. No fluff. No generic intros.\n"
+        "3. POINT-WISE: If specific questions were asked (e.g. 'What's your valuation?'), answer them directly with the number.\n"
+        "4. TONE: Confident, professional, Silicon Valley style."
+    )
+
+    user_prompt = (
+        f"My Company Data (Use this for facts): {my_facts}\n"
+        f"Context: {user_context}\n\n"
+        f"Conversation History:\n{conversation_text}\n\n"
+        "Draft a reply for me (Me):"
+    )
+
+    # 3. Call LLM
+    try:
+        response = LLM_CLIENT.chat.completions.create(
+            model="llama3.2",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.2 # Lower temp for more factual/consistent output
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Error generating reply: {str(e)}"
