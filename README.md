@@ -1,44 +1,167 @@
-# Secure Decentralized Chat
+# StartUp Forge 🚀
 
-Using Node.js, gun.js, and PostgreSQL to create a secure, peer-to-peer chat system where the backend acts only as a permission gatekeeper.
+**StartUp Forge** is a next-generation ecosystem designed to bridge the gap between **Startup Founders** and **Investors**. Unlike traditional platforms that rely on manual searching and opaque networks, StartUp Forge leverages **Advanced AI**, **Graph Databases**, and **Decentralized Technologies** to create transparent, high-quality, and conflict-free connections.
 
-## Quick Start
+---
 
-### 1. Database (Postgres)
-Ensure the Docker container is running:
-```powershell
+## 🌟 Why StartUp Forge?
+
+### The Problem
+- **Founders** struggle to find investors who are truly interested in their specific domain and stage. Cold outreach is often ignored.
+- **Investors** are overwhelmed with pitch decks that don't match their thesis.
+- **Hidden Conflicts**: Identifying if an investor has already invested in a competitor is difficult and time-consuming, leading to wasted meetings and IP risks.
+
+### The Solution
+StartUp Forge solves these issues by:
+1.  **AI-Powered Matchmaking**: Using Retrieval-Augmented Generation (RAG) to semantically understand a startup's pitch and match it with an investor's thesis.
+2.  **Automated Conflict Analysis**: Instantly detecting potential Conflicts of Interest (COI) by analyzing an investor's existing portfolio using Graph logic.
+3.  **Growth Prediction**: Providing data-driven insights into a startup's potential trajectory.
+4.  **Trust & Privacy**: Ensuring communication is secure and decentralized.
+
+---
+
+## � Technical Deep Dive
+
+### 1. RAG-Powered AI Chatbot & Search
+We don't use simple keyword matching. StartUp Forge implements a **Retrieval-Augmented Generation (RAG)** pipeline to "reason" about matchmaking.
+
+*   **Architecture**:
+    *   **Embeddings**: We use the `BAAI/bge-base-en-v1.5` model to convert founder pitches and investor theses into 768-dimensional vectors.
+    *   **Vector Database (ChromaDB)**: These vectors are stored in a localized vector store for millisecond-latency similarity search.
+    *   **LLM Reasoning (Llama 3.2)**: When a user performs a search, the system retrieves the top-k most semantically relevant profiles and feeds them into a local **Llama 3.2** model. The LLM then generates a natural language explanation of *why* this match makes sense.
+*   **Chatbot Capabilities**: Users can chat with the "System" to refine their search (e.g., *"Show me investors who like SaaS but avoid Fintech"*). The RAG pipeline respects these negative constraints.
+
+### 2. Conflict of Interest (COI) Engine
+This is the platform's "Safety Shield". Before a founder reveals their pitch deck, the system runs a deep graph traversal to ensure safety.
+
+*   **Level 1 Conflict (Sector Overlap)**: Checks if the investor has heavily invested in the exact same narrow sector (e.g., *Generative AI Video*).
+*   **Level 2 Conflict (Direct Competitor)**: Uses **Neo4j Graph Database** to check if the investor holds a board seat or significant equity in a direct competitor.
+*   **The Math**: We treat the investor-startup network as a directed graph $G(V, E)$. A potential conflict is identified if there exists a path of length $\le 2$ between the target Investor node and a Competitor node.
+
+### 3. Growth Prediction Model
+An ML-powered oracle that gives Investors a "Credit Score" like view of a startup's potential.
+
+*   **Inputs**: Funding Round, Market Size, Team Experience (Years), Competitor Density/Count.
+*   **Outputs**:
+    *   **Growth Classification**: High/Medium/Low velocity.
+    *   **Valuation Projection**: Forecasted valuation at 3-month, 1-year, and 5-year intervals.
+    *   **Acquisition Probability**: Likelihood of M&A exit.
+*   **Model Stack**: An ensemble model combining **Gradient Boosting (XGBoost)** for regression (valuation) and **Random Forest** for classification (growth tier).
+
+### 4. Decentralized Messaging (Gun.js)
+We believe private negotiations should stay private.
+*   **No Central Database**: Unlike WhatsApp or Slack where a central server stores messages, StartUp Forge uses **Gun.js**, a decentralized graph database.
+*   **Peer-to-Peer Sync**: Messages are encrypted and synced directly between online peers. If a peer is offline, the localized Relay Server holds the encrypted packet until delivery, then forgets it.
+
+---
+
+## 📊 Dataset Creation & Publication
+To build these high-accuracy models, we curated and cleaned a massive dataset of startup-investor interactions.
+
+**The output dataset has been published on Kaggle for the open-source community:**
+👉 **[Startup Founders and Investors Dataset](https://www.kaggle.com/datasets/adityaankanath/startup-founders-and-investors-dataset)**
+
+*   **Size**: 10,000+ Profiles.
+*   **Features**: Includes detailed "About" sections (for NLP), funding history (for Regression), and portfolio mappings (for Graph Analysis).
+
+---
+
+## 🏗️ System Architecture
+
+The project consists of four main microservices working in harmony:
+
+1.  **Frontend (`/frontend`)**:
+    -   Built with **React 18**, **TypeScript**, and **Vite**.
+    -   Modern UI with Tailwind CSS, Shadcn/Radix components.
+    -   Handles all user interactions, dashboards, and visualizations.
+
+2.  **Core Backend (`/backend`)**:
+    -   **Node.js & Express**.
+    -   Manages User Authentication (PostgreSQL).
+    -   Orchestrates data flow between services.
+    -   Connects to **Neo4j** for complex relationship queries.
+
+3.  **AI Service (`/rag_backend`)**:
+    -   **Python & FastAPI**.
+    -   Hosts the **Llama 3.2** model (via Ollama) and interactions.
+    -   Handles vector embeddings and RAG search logic.
+    -   Runs the Growth Prediction models.
+
+4.  **Real-Time Relay (`/gun_server`)**:
+    -   **Node.js & Gun.js**.
+    -   Acts as a relay peer for decentralized data synchronization (Chat, Live Notifications).
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js** (v18+)
+- **Python** (3.10+)
+- **Docker** (for PostgreSQL & Neo4j)
+- **Ollama** (with `llama3.2` model pulled)
+
+### 1. Database Setup
+Start the required databases using Docker:
+```bash
+# Ensure you have a docker-compose or start containers manually
 docker start startupforge-postgres
+docker start startupforge-neo4j
 ```
 
-### 2. Backend API
-Acts as the permission gatekeeper (Port 3000).
-```powershell
+### 2. Core Backend
+```bash
 cd backend
 npm install
 node server.js
+# server runs on port 3000
 ```
 
-### 3. Gun.js Relay Server
-Handles decentralized message storage (Port 8765).
-```powershell
+### 3. AI Service (RAG)
+```bash
+cd rag_backend
+pip install -r requirements.txt
+uvicorn app:app --reload --port 8000
+# API runs on port 8000
+```
+
+### 4. Gun.js Relay
+```bash
 cd gun_server
 npm install
 node gun.js
+# Relay runs on port 8765
 ```
 
-### 4. Frontend Client
-Simple UI to test the chat (Port 8001).
-```powershell
-npx http-server frontend -p 8001
+### 5. Frontend Client
+```bash
+cd frontend
+npm install
+npm run dev
+# App runs on http://localhost:5173
 ```
 
-### 5. Use the App
-1. Open [http://localhost:8001](http://localhost:8001) in your browser.
-2. Enter **Connection ID: 1** (This connection is pre-seeded as ACCEPTED in the DB).
-3. Click **Initialize Chat**.
-4. Start chatting!
+---
 
-## Architecture
-- **Postgres**: Stores `connection_requests` and `chat_rooms` (room keys).
-- **Backend**: Checks `status='ACCEPTED'` before issuing a room key.
-- **Gun.js**: Stores the actual encrypted chat messages in a graph structure.
+## 📂 Project Structure
+
+| Directory | Description |
+|-----------|-------------|
+| `frontend/` | The React client application. |
+| `backend/` | Main Node.js API gateway and DB controller. |
+| `rag_backend/` | Python AI service for Search & Reasoning. |
+| `gun_server/` | Decentralized WebSocket relay. |
+| `growth_predict/` | ML notebooks and scripts for valuation models. |
+| `coi/` | Legacy scripts for Conflict of Interest logic. |
+
+---
+
+## 🤝 Contribution
+1.  Fork the repo.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
+
+---
+**Built with ❤️ by the StartUp Forge Team**
