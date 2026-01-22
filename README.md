@@ -61,8 +61,11 @@ To build these high-accuracy models, we curated and cleaned a massive dataset of
 **The output dataset has been published on Kaggle for the open-source community:**
 👉 **[Startup Founders and Investors Dataset](https://www.kaggle.com/datasets/adityaankanath/startup-founders-and-investors-dataset)**
 
-*   **Size**: 10,000+ Profiles.
+*   **Size**: 1000+ Profiles.
 *   **Features**: Includes detailed "About" sections (for NLP), funding history (for Regression), and portfolio mappings (for Graph Analysis).
+  ![WhatsApp Image 2025-12-28 at 1 06 38 AM](https://github.com/user-attachments/assets/bb55e89a-be35-48ab-9105-7527f11de31b)
+  ![WhatsApp Image 2025-12-28 at 1 06 38 AM](https://github.com/user-attachments/assets/3a06ceb4-77c9-4daf-a7ff-be4f6c8f04f0)
+
 
 ---
 
@@ -140,6 +143,20 @@ npm install
 npm run dev
 # App runs on http://localhost:5173
 ```
+
+---
+## Gallery
+<img width="1919" height="974" alt="Screenshot 2026-01-20 015823" src="https://github.com/user-attachments/assets/66871880-80b0-4f96-8c1e-d554664698b3" />
+<img width="1919" height="972" alt="Screenshot 2026-01-20 015946" src="https://github.com/user-attachments/assets/2327fffc-d413-44a2-8a1b-db0145e3fa84" />
+<img width="1919" height="965" alt="Screenshot 2026-01-20 020035" src="https://github.com/user-attachments/assets/699fe6b4-6e35-4b50-a209-28329fc37bec" />
+<img width="1916" height="963" alt="Screenshot 2026-01-20 021953" src="https://github.com/user-attachments/assets/db55a745-faa9-494a-94ff-6012f9121d24" />
+<img width="1912" height="964" alt="Screenshot 2026-01-20 022001" src="https://github.com/user-attachments/assets/5131ceed-0b5c-42a2-b9f1-547757201d54" />
+<img width="1845" height="892" alt="Screenshot 2026-01-20 022020" src="https://github.com/user-attachments/assets/5b7d28ff-0a3f-43a3-95e5-b5dee8d11505" />
+<img width="1524" height="961" alt="Screenshot 2026-01-20 163929" src="https://github.com/user-attachments/assets/0de7683e-8acb-4e97-a770-0cddc2758691" />
+<img width="1919" height="954" alt="Screenshot 2026-01-23 015357" src="https://github.com/user-attachments/assets/3b02de0b-7fc1-4664-8b78-ea746e4ab963" />
+<img width="1919" height="943" alt="Screenshot 2026-01-23 015420" src="https://github.com/user-attachments/assets/66a32459-b398-4295-b22a-4823ca461939" />
+<img width="1919" height="938" alt="Screenshot 2026-01-23 015435" src="https://github.com/user-attachments/assets/a9e44492-3413-4f0a-9e4e-6426a0620025" />
+<img width="1919" height="938" alt="Screenshot 2026-01-23 015445" src="https://github.com/user-attachments/assets/15ce298b-8810-4dc1-9a6a-313c19ed52da" />
 
 ---
 
