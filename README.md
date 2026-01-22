@@ -20,7 +20,7 @@ StartUp Forge solves these issues by:
 
 ---
 
-## � Technical Deep Dive
+##  Technical Deep Dive
 
 ### 1. RAG-Powered AI Chatbot & Search
 We don't use simple keyword matching. StartUp Forge implements a **Retrieval-Augmented Generation (RAG)** pipeline to "reason" about matchmaking.
